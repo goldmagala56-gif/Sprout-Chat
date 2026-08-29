@@ -1,0 +1,68 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Bell, Volume2, Moon, Eye, Type, Shield, HelpCircle } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth.js';
+import { COLORS } from '../utils/constants.js';
+import BottomNav from '../components/layout/BottomNav.jsx';
+
+function SettingRow({ icon: Icon, label, value, onChange }) {
+  return (
+    <div className="flex items-center justify-between py-3.5" style={{ borderBottom: `1px solid ${COLORS.divider}` }}>
+      <div className="flex items-center gap-3">
+        <Icon size={20} color={COLORS.primary} />
+        <span className="text-[15px]" style={{ color: COLORS.text }}>{label}</span>
+      </div>
+      <button onClick={onChange} className="w-11 h-6 rounded-full relative transition-colors flex-shrink-0" style={{ backgroundColor: value ? COLORS.primary : COLORS.divider }}>
+        <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all" style={{ left: value ? 22 : 2 }} />
+      </button>
+    </div>
+  );
+}
+
+export default function SettingsPage() {
+  const navigate = useNavigate();
+  const { profile, updateProfile } = useAuth();
+  const s = profile?.settings || {};
+
+  const updateSetting = (key, val) => {
+    updateProfile({ settings: { ...s, [key]: val } });
+  };
+
+  return (
+    <div className="h-full flex flex-col" style={{ backgroundColor: COLORS.bg }}>
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ backgroundColor: COLORS.bgSecondary }}>
+        <button onClick={() => navigate('/')} className="md:hidden p-1 -ml-1"><ArrowLeft size={22} color={COLORS.text} /></button>
+        <h1 className="text-lg font-bold" style={{ color: COLORS.text }}>Settings</h1>
+      </div>
+
+      {/* Settings Content */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="px-4 py-2">
+          <div className="text-xs font-semibold uppercase tracking-wide py-2" style={{ color: COLORS.textMuted }}>Preferences</div>
+          <SettingRow icon={Bell} label="Notifications" value={s.notifications} onChange={() => updateSetting('notifications', !s.notifications)} />
+          <SettingRow icon={Volume2} label="Sounds" value={s.sound} onChange={() => updateSetting('sound', !s.sound)} />
+          <SettingRow icon={Moon} label="Dark Mode" value={s.darkMode} onChange={() => updateSetting('darkMode', !s.darkMode)} />
+          <SettingRow icon={Eye} label="Read Receipts" value={s.readReceipts} onChange={() => updateSetting('readReceipts', !s.readReceipts)} />
+          <SettingRow icon={Type} label="Typing Indicators" value={s.typingIndicators} onChange={() => updateSetting('typingIndicators', !s.typingIndicators)} />
+        </div>
+
+        <div className="px-4 py-2">
+          <div className="text-xs font-semibold uppercase tracking-wide py-2" style={{ color: COLORS.textMuted }}>About</div>
+          <div className="flex items-center gap-3 py-3.5" style={{ borderBottom: `1px solid ${COLORS.divider}` }}>
+            <Shield size={20} color={COLORS.primary} />
+            <div><div className="text-[15px]" style={{ color: COLORS.text }}>Privacy Policy</div><div className="text-xs" style={{ color: COLORS.textMuted }}>How we protect your data</div></div>
+          </div>
+          <div className="flex items-center gap-3 py-3.5" style={{ borderBottom: `1px solid ${COLORS.divider}` }}>
+            <HelpCircle size={20} color={COLORS.primary} />
+            <div><div className="text-[15px]" style={{ color: COLORS.text }}>Help Center</div><div className="text-xs" style={{ color: COLORS.textMuted }}>Get support and FAQs</div></div>
+          </div>
+          <div className="py-4 text-center"><span className="text-xs" style={{ color: COLORS.textMuted }}>Sprout v2.0.0 — Built with Supabase</span></div>
+        </div>
+      </div>
+
+      {/* Bottom Nav */}
+      <BottomNav />
+    </div>
+  );
+}
