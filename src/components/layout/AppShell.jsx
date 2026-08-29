@@ -34,7 +34,7 @@ export default function AppShell() {
   const showChatWindow = !isMobile || !isListRoute; // covers /chat/:id AND /contacts, /profile, /settings
 
   return (
-    <div className="h-screen w-full flex overflow-hidden bg-white font-sans relative">
+    <div className="h-[100dvh] w-full flex overflow-hidden bg-white font-sans relative">
       {/* ===== SIDEBAR (Chat List) ===== */}
       <div 
         className={`flex-col flex-shrink-0 border-r transition-transform duration-200
