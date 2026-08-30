@@ -31,6 +31,18 @@ export function useContacts(userId) {
     return (data || []).map(u => ({ ...u, id: u.id }));
   }, [userId]);
 
+  const searchByPhone = useCallback(async (phone) => {
+    if (!phone) return null;
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, name, initials, avatar_url, bio, phone, online, status')
+      .eq('phone', phone)
+      .neq('id', userId)
+      .maybeSingle();
+    if (error) { console.error('Search by phone error:', error); return null; }
+    return data;
+  }, [userId]);
+
   const addContact = useCallback(async (contactId) => {
     if (!userId) return;
     await supabase.from('contacts').insert({ owner_id: userId, contact_id: contactId });
@@ -43,5 +55,5 @@ export function useContacts(userId) {
     setContacts(prev => prev.filter(c => c.id !== contactId));
   }, [userId]);
 
-  return { contacts, loading, fetchContacts, searchUsers, addContact, removeContact };
+  return { contacts, loading, fetchContacts, searchUsers, searchByPhone, addContact, removeContact };
 }

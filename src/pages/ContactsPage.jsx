@@ -6,16 +6,34 @@ import { useContacts } from '../hooks/useContacts.js';
 import { useConversations } from '../hooks/useConversations.js';
 import { COLORS } from '../utils/constants.js';
 import Avatar from '../components/ui/Avatar.jsx';
+import { UserPlus as AddByPhone } from 'lucide-react';
 import BottomNav from '../components/layout/BottomNav.jsx';
 
 export default function ContactsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { contacts, searchUsers, addContact, removeContact } = useContacts(user?.id);
   const { createDirect } = useConversations(user?.id);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const { contacts, searchUsers, searchByPhone, addContact, removeContact } = useContacts(user?.id);
+  const [phoneQuery, setPhoneQuery] = useState('');
+  const [phoneResult, setPhoneResult] = useState(undefined); // undefined = not searched, null = not found, object = found
+  const [phoneSearching, setPhoneSearching] = useState(false);
+
+  const handlePhoneSearch = async () => {
+    if (!phoneQuery.trim()) return;
+    setPhoneSearching(true);
+    const result = await searchByPhone(phoneQuery.trim());
+    setPhoneResult(result);
+    setPhoneSearching(false);
+  };
+
+  const handleAddByPhone = async (contact) => {
+    await addContact(contact.id);
+    setPhoneQuery('');
+    setPhoneResult(undefined);
+  };
 
   const handleSearch = async (q) => {
     setQuery(q);
@@ -38,6 +56,39 @@ export default function ContactsPage() {
         <button onClick={() => navigate('/')} className="md:hidden p-1 -ml-1"><ArrowLeft size={22} color={COLORS.text} /></button>
         <h1 className="text-lg font-bold" style={{ color: COLORS.text }}>Contacts</h1>
       </div>
+
+      {/* Add by phone number — place this above the existing name Search block */}
+        <div className="px-3 py-2 flex-shrink-0">
+          <div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: COLORS.textMuted }}>Add by Phone Number</div>
+          <div className="flex items-center gap-2">
+            <input
+              value={phoneQuery}
+              onChange={e => { setPhoneQuery(e.target.value); setPhoneResult(undefined); }}
+              placeholder="+256 7XX XXX XXX"
+              type="tel"
+              className="flex-1 rounded-lg px-3 py-2 text-sm outline-none"
+              style={{ border: `1px solid ${COLORS.panelBorder}` }}
+            />
+            <button onClick={handlePhoneSearch} disabled={phoneSearching || !phoneQuery.trim()} className="p-2.5 rounded-lg disabled:opacity-50" style={{ backgroundColor: COLORS.primary }}>
+              <AddByPhone size={16} color="white" />
+            </button>
+          </div>
+
+          {phoneResult === null && (
+            <div className="text-xs mt-2 py-2 px-3 rounded-lg" style={{ backgroundColor: COLORS.bgSecondary, color: COLORS.textMuted }}>
+              No Sprout user found with that number.
+            </div>
+          )}
+          {phoneResult && (
+            <div className="flex items-center gap-3 mt-2 py-2">
+              <Avatar url={phoneResult.avatar_url} initials={phoneResult.initials} online={phoneResult.online} size={44} />
+              <div className="flex-1"><div className="text-sm font-semibold" style={{ color: COLORS.text }}>{phoneResult.name}</div></div>
+              <button onClick={() => handleAddByPhone(phoneResult)} className="p-2 rounded-full" style={{ backgroundColor: COLORS.accentSoft }}>
+                <UserPlus size={16} color={COLORS.primary} />
+              </button>
+            </div>
+          )}
+        </div>
 
       {/* Search */}
       <div className="px-3 py-2 flex-shrink-0">
