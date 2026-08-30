@@ -12,7 +12,7 @@ export default function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, profile, signOut } = useAuth();
-  const { conversations, loading } = useConversations(user?.id);
+  const { conversations, loading } = useConversations();
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
