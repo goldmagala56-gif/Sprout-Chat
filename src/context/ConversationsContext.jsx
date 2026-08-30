@@ -1,4 +1,3 @@
-// context/ConversationsContext.jsx — new file
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../hooks/useAuth.js';
@@ -20,6 +19,7 @@ export function ConversationsProvider({ children }) {
       .select(`
         conversation_id,
         unread_count,
+        is_muted, is_archived, is_pinned, pinned_at,
         conversations!inner(
           id, name, is_group, created_at, updated_at,
           conversation_participants(
@@ -29,9 +29,7 @@ export function ConversationsProvider({ children }) {
           messages!conversation_id(id, text, type, sender_id, created_at)
         )
       `)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false, foreignTable: 'messages' })
-      .limit(1, { foreignTable: 'messages' });
+      .eq('user_id', userId);
 
     if (error) { console.error('Fetch conversations error:', error); setLoading(false); return; }
 
@@ -39,7 +37,11 @@ export function ConversationsProvider({ children }) {
       const conv = row.conversations;
       const participants = conv.conversation_participants || [];
       const other = participants.find(p => p.user_id !== userId)?.profiles;
-      const lastMsg = conv.messages?.[0];
+
+      const lastMsg = (conv.messages || []).reduce(
+        (latest, m) => (!latest || new Date(m.created_at) > new Date(latest.created_at)) ? m : latest,
+        null
+      );
       const lastText = lastMsg ? (lastMsg.type === 'voice' ? 'Voice message' : lastMsg.text) : 'No messages yet';
       const lastIsMine = lastMsg?.sender_id === userId;
 
@@ -58,6 +60,9 @@ export function ConversationsProvider({ children }) {
         members: participants.map(p => p.profiles?.name || 'User'),
         participantIds: participants.map(p => p.user_id),
         otherUser: other,
+        isMuted: row.is_muted,
+        isArchived: row.is_archived,
+        isPinned: row.is_pinned,
       };
     });
 
@@ -92,13 +97,14 @@ export function ConversationsProvider({ children }) {
 
   const createGroup = useCallback(async (name, memberIds) => {
     if (!userId) return null;
-    const { data: conv, error: convError } = await supabase.from('conversations').insert({ name, is_group: true, created_by: userId }).select().single();
-    if (convError) { console.error('Create group error:', convError); return null; }
-    const allMembers = [...new Set([userId, ...memberIds])];
-    const participants = allMembers.map(uid => ({ conversation_id: conv.id, user_id: uid, is_admin: uid === userId }));
-    await supabase.from('conversation_participants').insert(participants);
+    const { data, error } = await supabase.rpc('create_group_conversation', {
+      group_name: name,
+      member_ids: memberIds,
+      creator_id: userId,
+    });
+    if (error) { console.error('Create group error:', error); return null; }
     await fetchConversations();
-    return conv.id;
+    return data;
   }, [userId, fetchConversations]);
 
   const deleteConversation = useCallback(async (convId) => {

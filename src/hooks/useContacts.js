@@ -10,26 +10,28 @@ export function useContacts(userId) {
     setLoading(true);
     const { data, error } = await supabase
       .from('contacts')
-      .select('contact_id, profiles:contact_id(id, name, initials, avatar_url, bio, phone, online, last_seen, status)')
-      .eq('owner_id', userId);
+      .select('id, name, phone, contact_id, profiles:contact_id(id, initials, avatar_url, bio, online, last_seen, status)')
+      .eq('owner_id', userId)
+      .order('name', { ascending: true });
 
-    if (!error) setContacts((data || []).map(row => ({ ...row.profiles, id: row.profiles.id })));
+    if (error) { console.error('Fetch contacts error:', error); setLoading(false); return; }
+
+    setContacts((data || []).map(row => ({
+      rowId: row.id,
+      id: row.contact_id,          // null until they're on Sprout
+      registered: !!row.contact_id,
+      name: row.name,               // your name for them, always shown
+      phone: row.phone,
+      initials: row.profiles?.initials || row.name?.slice(0, 2).toUpperCase() || '??',
+      avatar_url: row.profiles?.avatar_url,
+      online: row.profiles?.online || false,
+      bio: row.profiles?.bio,
+      status: row.profiles?.status,
+    })));
     setLoading(false);
   }, [userId]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
-
-  const searchUsers = useCallback(async (query) => {
-    if (!query || query.length < 2) return [];
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, name, initials, avatar_url, bio, phone, online, status')
-      .ilike('name', `%${query}%`)
-      .neq('id', userId)
-      .limit(20);
-    if (error) return [];
-    return (data || []).map(u => ({ ...u, id: u.id }));
-  }, [userId]);
 
   const searchByPhone = useCallback(async (phone) => {
     if (!phone) return null;
@@ -43,17 +45,29 @@ export function useContacts(userId) {
     return data;
   }, [userId]);
 
-  const addContact = useCallback(async (contactId) => {
-    if (!userId) return;
-    await supabase.from('contacts').insert({ owner_id: userId, contact_id: contactId });
+  const addContact = useCallback(async (name, phone) => {
+    if (!userId || !name?.trim() || !phone?.trim()) return { error: 'Name and phone are required' };
+    const matched = await searchByPhone(phone.trim());
+    const { error } = await supabase.from('contacts').insert({
+      owner_id: userId,
+      name: name.trim(),
+      phone: phone.trim(),
+      contact_id: matched?.id || null,
+    });
+    if (error) {
+      console.error('Add contact error:', error);
+      return { error: error.code === '23505' ? 'You already saved this number' : error.message };
+    }
     await fetchContacts();
-  }, [userId, fetchContacts]);
+    return { registered: !!matched };
+  }, [userId, searchByPhone, fetchContacts]);
 
-  const removeContact = useCallback(async (contactId) => {
+  const removeContact = useCallback(async (rowId) => {
     if (!userId) return;
-    await supabase.from('contacts').delete().eq('owner_id', userId).eq('contact_id', contactId);
-    setContacts(prev => prev.filter(c => c.id !== contactId));
+    const { error } = await supabase.from('contacts').delete().eq('id', rowId).eq('owner_id', userId);
+    if (error) { console.error('Remove contact error:', error); return; }
+    setContacts(prev => prev.filter(c => c.rowId !== rowId));
   }, [userId]);
 
-  return { contacts, loading, fetchContacts, searchUsers, searchByPhone, addContact, removeContact };
+  return { contacts, loading, fetchContacts, searchByPhone, addContact, removeContact };
 }
