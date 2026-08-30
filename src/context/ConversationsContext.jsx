@@ -78,11 +78,18 @@ export function ConversationsProvider({ children }) {
     const channel = supabase
       .channel(`conversation-updates-${userId}`)
       .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'conversation_participants',
+        event: '*', schema: 'public', table: 'conversation_participants',
         filter: `user_id=eq.${userId}`,
       }, () => fetchConversations())
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'profiles',
+      }, (payload) => {
+        const p = payload.new;
+        setConversations(prev => prev.map(c => {
+          if (c.group || c.otherUser?.id !== p.id) return c;
+          return { ...c, online: p.online, otherUser: { ...c.otherUser, online: p.online, last_seen: p.last_seen } };
+        }));
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [userId, fetchConversations]);
@@ -97,11 +104,7 @@ export function ConversationsProvider({ children }) {
 
   const createGroup = useCallback(async (name, memberIds) => {
     if (!userId) return null;
-    const { data, error } = await supabase.rpc('create_group_conversation', {
-      group_name: name,
-      member_ids: memberIds,
-      creator_id: userId,
-    });
+    const { data, error } = await supabase.rpc('create_group_conversation', { group_name: name, member_ids: memberIds, creator_id: userId });
     if (error) { console.error('Create group error:', error); return null; }
     await fetchConversations();
     return data;

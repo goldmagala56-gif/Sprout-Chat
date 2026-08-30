@@ -18,13 +18,14 @@ export function useContacts(userId) {
 
     setContacts((data || []).map(row => ({
       rowId: row.id,
-      id: row.contact_id,          // null until they're on Sprout
+      id: row.contact_id,
       registered: !!row.contact_id,
-      name: row.name,               // your name for them, always shown
+      name: row.name,
       phone: row.phone,
       initials: row.profiles?.initials || row.name?.slice(0, 2).toUpperCase() || '??',
       avatar_url: row.profiles?.avatar_url,
       online: row.profiles?.online || false,
+      last_seen: row.profiles?.last_seen,
       bio: row.profiles?.bio,
       status: row.profiles?.status,
     })));
@@ -32,6 +33,18 @@ export function useContacts(userId) {
   }, [userId]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel(`contacts-presence-${userId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
+        const p = payload.new;
+        setContacts(prev => prev.map(c => c.id === p.id ? { ...c, online: p.online, last_seen: p.last_seen } : c));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userId]);
 
   const searchByPhone = useCallback(async (phone) => {
     if (!phone) return null;
@@ -49,10 +62,7 @@ export function useContacts(userId) {
     if (!userId || !name?.trim() || !phone?.trim()) return { error: 'Name and phone are required' };
     const matched = await searchByPhone(phone.trim());
     const { error } = await supabase.from('contacts').insert({
-      owner_id: userId,
-      name: name.trim(),
-      phone: phone.trim(),
-      contact_id: matched?.id || null,
+      owner_id: userId, name: name.trim(), phone: phone.trim(), contact_id: matched?.id || null,
     });
     if (error) {
       console.error('Add contact error:', error);
