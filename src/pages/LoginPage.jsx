@@ -6,12 +6,15 @@ import { COLORS } from '../utils/constants.js';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const { signIn, requestPasswordReset } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showReset, setShowReset] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,6 +27,20 @@ export default function LoginPage() {
       setError(err.message || 'Invalid credentials');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetRequest = async () => {
+    if (!email.trim()) { setError('Enter your email above first, then tap "Forgot password?" again.'); return; }
+    setError('');
+    setResetLoading(true);
+    try {
+      await requestPasswordReset(email.trim());
+      setResetSent(true);
+    } catch (err) {
+      setError(err.message || 'Could not send reset email');
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -43,19 +60,38 @@ export default function LoginPage() {
             <label className="text-xs font-semibold mb-1.5 block uppercase tracking-wide" style={{ color: COLORS.text }}>Email</label>
             <div className="flex items-center gap-2 rounded-xl px-3 py-3" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.panelBorder}` }}>
               <Mail size={16} color={COLORS.textMuted} />
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" className="w-full bg-transparent outline-none text-sm" style={{ color: COLORS.text }} required />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" className="w-full bg-transparent outline-none text-sm" style={{ color: COLORS.text }} required />
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold mb-1.5 block uppercase tracking-wide" style={{ color: COLORS.text }}>Password</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: COLORS.text }}>Password</label>
+              <button type="button" onClick={() => { setShowReset(!showReset); setResetSent(false); setError(''); }} className="text-xs font-medium" style={{ color: COLORS.primary }}>Forgot password?</button>
+            </div>
             <div className="flex items-center gap-2 rounded-xl px-3 py-3" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.panelBorder}` }}>
               <Lock size={16} color={COLORS.textMuted} />
-              <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" className="w-full bg-transparent outline-none text-sm" style={{ color: COLORS.text }} required />
+              <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" autoComplete="current-password" className="w-full bg-transparent outline-none text-sm" style={{ color: COLORS.text }} required />
               <button type="button" onClick={() => setShowPass(!showPass)}>
                 {showPass ? <EyeOff size={16} color={COLORS.textMuted} /> : <Eye size={16} color={COLORS.textMuted} />}
               </button>
             </div>
           </div>
+
+          {showReset && (
+            <div className="text-xs px-3 py-2.5 rounded-lg" style={{ backgroundColor: COLORS.accentSoft }}>
+              {resetSent ? (
+                <span style={{ color: COLORS.primaryDark }}>Reset link sent to {email}. Check your inbox (and spam folder).</span>
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <span style={{ color: COLORS.primaryDark }}>We'll email a reset link to the address above.</span>
+                  <button type="button" onClick={handleResetRequest} disabled={resetLoading} className="font-semibold flex-shrink-0 disabled:opacity-50" style={{ color: COLORS.primary }}>
+                    {resetLoading ? 'Sending...' : 'Send'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {error && <div className="text-xs px-3 py-2 rounded-lg bg-red-50 text-red-600">{error}</div>}
           <button type="submit" disabled={loading} className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: COLORS.primary }}>
             {loading ? 'Signing in...' : 'Sign In'}

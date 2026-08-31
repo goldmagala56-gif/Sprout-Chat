@@ -1,98 +1,92 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, getCurrentUser } from '../lib/supabase.js';
+import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Camera, Edit2, Check, LogOut } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth.js';
+import { COLORS } from '../utils/constants.js';
+import Avatar from '../components/ui/Avatar.jsx';
+import BottomNav from '../components/layout/BottomNav.jsx';
 
-const AuthContext = createContext(null);
-const HEARTBEAT_MS = 45000; // refresh last_seen every 45s while the tab is active
+export default function ProfilePage() {
+  const navigate = useNavigate();
+  const { profile, updateProfile, uploadAvatar, signOut } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [form, setForm] = useState({ name: profile?.name || '', bio: profile?.bio || '', phone: profile?.phone || '' });
+  const fileInputRef = useRef(null);
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const heartbeatRef = useRef(null);
+  const startEditing = () => {
+    setForm({ name: profile?.name || '', bio: profile?.bio || '', phone: profile?.phone || '' });
+    setEditing(true);
+  };
 
-  const fetchProfile = useCallback(async (userId) => {
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (!error) setProfile(data);
-    setLoading(false);
-  }, []);
+  const handleSave = async () => {
+    await updateProfile(form);
+    setEditing(false);
+  };
 
-  const setOnlineStatus = useCallback(async (uid, online) => {
-    if (!uid) return;
-    await supabase.from('profiles').update({ online, last_seen: new Date().toISOString() }).eq('id', uid);
-  }, []);
+  const handleAvatarPick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    try {
+      await uploadAvatar(file);
+    } catch (err) {
+      alert('Could not upload photo: ' + (err.message || 'unknown error'));
+    } finally {
+      setUploading(false);
+    }
+  };
 
-  useEffect(() => {
-    getCurrentUser().then(u => {
-      setUser(u);
-      if (u) fetchProfile(u.id);
-      else setLoading(false);
-    });
+  return (
+    <div className="h-full flex flex-col" style={{ backgroundColor: COLORS.bg }}>
+      <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ backgroundColor: COLORS.bgSecondary }}>
+        <button onClick={() => navigate('/')} className="md:hidden p-1 -ml-1"><ArrowLeft size={22} color={COLORS.text} /></button>
+        <h1 className="text-lg font-bold" style={{ color: COLORS.text }}>Profile</h1>
+      </div>
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-      else { setProfile(null); setLoading(false); }
-    });
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="flex flex-col items-center py-8">
+          <div className="relative">
+            <Avatar url={profile?.avatar_url} initials={profile?.initials} online={true} size={100} />
+            <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="absolute bottom-0 right-0 p-2 rounded-full bg-white shadow-md disabled:opacity-50" style={{ border: `1px solid ${COLORS.divider}` }}>
+              <Camera size={16} color={COLORS.primary} />
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarPick} />
+          </div>
+          {uploading && <div className="text-xs mt-2" style={{ color: COLORS.textMuted }}>Uploading...</div>}
+          <h2 className="text-xl font-semibold mt-4" style={{ color: COLORS.text }}>{profile?.name}</h2>
+          <p className="text-sm mt-1 px-4 text-center" style={{ color: COLORS.textMuted }}>{profile?.bio}</p>
+        </div>
 
-    return () => subscription.unsubscribe();
-  }, [fetchProfile]);
+        <div className="px-4 space-y-5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold" style={{ color: COLORS.text }}>Edit Profile</span>
+            <button onClick={() => editing ? handleSave() : startEditing()} className="p-2 rounded-lg" style={{ backgroundColor: COLORS.accentSoft }}>
+              {editing ? <Check size={16} color={COLORS.primary} /> : <Edit2 size={16} color={COLORS.primary} />}
+            </button>
+          </div>
 
-  // Presence: mark online while this tab is active, refresh last_seen periodically,
-  // mark offline when the tab is hidden/backgrounded or closed.
-  useEffect(() => {
-    const uid = user?.id;
-    if (!uid) return;
+          <div className="space-y-4">
+            {['name', 'bio', 'phone'].map(field => (
+              <div key={field}>
+                <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: COLORS.textMuted }}>{field}</label>
+                {editing ? (
+                  <input value={form[field]} onChange={e => setForm({ ...form, [field]: e.target.value })} className="w-full mt-1 rounded-lg px-3 py-2 text-sm outline-none" style={{ border: `1px solid ${COLORS.panelBorder}` }} />
+                ) : (
+                  <div className="text-sm mt-1 py-1" style={{ color: COLORS.text }}>{profile?.[field] || '-'}</div>
+                )}
+              </div>
+            ))}
+          </div>
 
-    setOnlineStatus(uid, true);
-    heartbeatRef.current = setInterval(() => {
-      if (document.visibilityState === 'visible') setOnlineStatus(uid, true);
-    }, HEARTBEAT_MS);
+          <button onClick={() => { signOut(); navigate('/login'); }} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold mt-6" style={{ backgroundColor: COLORS.dangerBg, color: COLORS.danger }}>
+            <LogOut size={16} /> Sign Out
+          </button>
+        </div>
+      </div>
 
-    const handleVisibility = () => setOnlineStatus(uid, document.visibilityState === 'visible');
-    const handleUnload = () => setOnlineStatus(uid, false);
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('beforeunload', handleUnload);
-
-    return () => {
-      clearInterval(heartbeatRef.current);
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('beforeunload', handleUnload);
-      setOnlineStatus(uid, false);
-    };
-  }, [user?.id, setOnlineStatus]);
-
-  const signUp = useCallback(async (name, email, password) => {
-    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
-    if (error) throw error;
-    return data;
-  }, []);
-
-  const signIn = useCallback(async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    return data;
-  }, []);
-
-  const signOut = useCallback(async () => {
-    if (user?.id) await setOnlineStatus(user.id, false);
-    await supabase.auth.signOut();
-  }, [user?.id, setOnlineStatus]);
-
-  const updateProfile = useCallback(async (updates) => {
-    if (!user) return;
-    const { data, error } = await supabase.from('profiles').update(updates).eq('id', user.id).select().single();
-    if (error) throw error;
-    setProfile(data);
-    return data;
-  }, [user]);
-
-  const value = { user, profile, loading, signUp, signIn, signOut, updateProfile };
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
+      <BottomNav />
+    </div>
+  );
 }

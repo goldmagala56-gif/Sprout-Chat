@@ -4,6 +4,7 @@ import { useAuth } from './hooks/useAuth.js';
 import AppShell from './components/layout/AppShell.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
+import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import ChatsPage from './pages/ChatsPage.jsx';
 import ChatPage from './pages/ChatPage.jsx';
 import ContactsPage from './pages/ContactsPage.jsx';
@@ -27,6 +28,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
         <Route path="/" element={<ChatsPage />} />
         <Route path="/chat/:id" element={<ChatPage />} />
