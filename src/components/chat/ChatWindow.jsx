@@ -20,8 +20,8 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
   useEffect(() => { setReplyTo(null); }, [conversation?.id]);
 
   if (!conversation) {
-    return (
-      <div className="hidden md:flex flex-1 items-center justify-center flex-col gap-4 h-full" style={{ backgroundColor: '#f0f2f5' }}>
+  return (
+    <div className="flex flex-1 items-center justify-center flex-col gap-4 h-full" style={{ backgroundColor: '#f0f2f5' }}>
         <div className="flex items-center justify-center rounded-full" style={{ width: 80, height: 80, backgroundColor: COLORS.accentSoft }}>
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={COLORS.primary} strokeWidth="2"><path d="M11 20A7 7 0 0 1 9.8 6.6C15.5 5.7 20 8.6 20 14c0 3.9-3.6 6-9 6z" /><path d="M2 21c0-3 1.8-5.9 4.8-7.4C7.4 16.5 9 20 9 20" /></svg>
         </div>
