@@ -1,16 +1,19 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Volume2, Moon, Eye, Type, Shield, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Bell, Volume2, Moon, Eye, Clock, Type, Shield, HelpCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { COLORS } from '../utils/constants.js';
 import BottomNav from '../components/layout/BottomNav.jsx';
 
-function SettingRow({ icon: Icon, label, value, onChange }) {
+function SettingRow({ icon: Icon, label, sublabel, value, onChange }) {
   return (
     <div className="flex items-center justify-between py-3.5" style={{ borderBottom: `1px solid ${COLORS.divider}` }}>
       <div className="flex items-center gap-3">
         <Icon size={20} color={COLORS.primary} />
-        <span className="text-[15px]" style={{ color: COLORS.text }}>{label}</span>
+        <div>
+          <div className="text-[15px]" style={{ color: COLORS.text }}>{label}</div>
+          {sublabel && <div className="text-xs" style={{ color: COLORS.textMuted }}>{sublabel}</div>}
+        </div>
       </div>
       <button onClick={onChange} className="w-11 h-6 rounded-full relative transition-colors flex-shrink-0" style={{ backgroundColor: value ? COLORS.primary : COLORS.divider }}>
         <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all" style={{ left: value ? 22 : 2 }} />
@@ -43,8 +46,25 @@ export default function SettingsPage() {
           <SettingRow icon={Bell} label="Notifications" value={s.notifications} onChange={() => updateSetting('notifications', !s.notifications)} />
           <SettingRow icon={Volume2} label="Sounds" value={s.sound} onChange={() => updateSetting('sound', !s.sound)} />
           <SettingRow icon={Moon} label="Dark Mode" value={s.darkMode} onChange={() => updateSetting('darkMode', !s.darkMode)} />
-          <SettingRow icon={Eye} label="Read Receipts" value={s.readReceipts} onChange={() => updateSetting('readReceipts', !s.readReceipts)} />
           <SettingRow icon={Type} label="Typing Indicators" value={s.typingIndicators} onChange={() => updateSetting('typingIndicators', !s.typingIndicators)} />
+        </div>
+
+        <div className="px-4 py-2">
+          <div className="text-xs font-semibold uppercase tracking-wide py-2" style={{ color: COLORS.textMuted }}>Privacy</div>
+          <SettingRow
+            icon={Eye}
+            label="Read Receipts"
+            sublabel="Others see when you've read their messages"
+            value={s.readReceipts !== false}
+            onChange={() => updateSetting('readReceipts', s.readReceipts === false)}
+          />
+          <SettingRow
+            icon={Clock}
+            label="Last Seen & Online"
+            sublabel="Show your online status and last seen time"
+            value={!s.lastSeenPrivacy}
+            onChange={() => updateSetting('lastSeenPrivacy', !s.lastSeenPrivacy)}
+          />
         </div>
 
         <div className="px-4 py-2">

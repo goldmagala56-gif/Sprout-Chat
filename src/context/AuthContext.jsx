@@ -9,6 +9,9 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const heartbeatRef = useRef(null);
+  const profileRef = useRef(null);
+
+  useEffect(() => { profileRef.current = profile; }, [profile]);
 
   const fetchProfile = useCallback(async (userId) => {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
@@ -16,9 +19,16 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
+  // Respects the "Last Seen" privacy setting: when hidden, we always report
+  // offline/no-last-seen to other users regardless of actual activity.
   const setOnlineStatus = useCallback(async (uid, online) => {
     if (!uid) return;
-    await supabase.from('profiles').update({ online, last_seen: new Date().toISOString() }).eq('id', uid);
+    const hideLastSeen = !!profileRef.current?.settings?.lastSeenPrivacy;
+    if (hideLastSeen) {
+      await supabase.from('profiles').update({ online: false, last_seen: null }).eq('id', uid);
+    } else {
+      await supabase.from('profiles').update({ online, last_seen: new Date().toISOString() }).eq('id', uid);
+    }
   }, []);
 
   useEffect(() => {

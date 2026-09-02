@@ -4,6 +4,15 @@ import { useAuth } from './useAuth.js';
 
 const PAGE_SIZE = 50;
 
+function buildReactions(rows, userId) {
+  const reactions = {};
+  (rows || []).forEach(r => {
+    reactions[r.emoji] = [...(reactions[r.emoji] || []), r.user_id];
+  });
+  const myReaction = Object.entries(reactions).find(([, uids]) => uids.includes(userId))?.[0] || null;
+  return { reactions, myReaction };
+}
+
 export function useMessages(conversationId, userId) {
   const { profile } = useAuth();
   const [messages, setMessages] = useState([]);
@@ -21,9 +30,11 @@ export function useMessages(conversationId, userId) {
     let query = supabase
       .from('messages')
       .select(`
-        id, conversation_id, sender_id, text, type, file_url, duration, reply_to, deleted_at, edited_at, created_at,
+        id, conversation_id, sender_id, text, type, file_url, duration, reply_to, deleted_at, edited_at, forwarded, created_at,
         profiles:sender_id(id, name, initials, avatar_url),
-        message_reads(user_id)
+        message_reads(user_id),
+        message_reactions(user_id, emoji),
+        starred_messages(user_id)
       `)
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
@@ -53,12 +64,14 @@ export function useMessages(conversationId, userId) {
       .reverse()
       .map(msg => {
         const replyMsg = msg.reply_to ? idMap[msg.reply_to] : null;
+        const { reactions, myReaction } = buildReactions(msg.message_reactions, userId);
         return {
           id: msg.id,
           from: msg.sender_id === userId ? 'me' : 'them',
           text: msg.deleted_at ? '' : msg.text,
           deletedAt: msg.deleted_at,
           editedAt: msg.edited_at,
+          forwarded: !!msg.forwarded,
           type: msg.type,
           file_url: msg.deleted_at ? null : msg.file_url,
           duration: msg.duration,
@@ -72,6 +85,9 @@ export function useMessages(conversationId, userId) {
           senderAvatar: msg.profiles?.avatar_url,
           readBy: msg.message_reads?.map(r => r.user_id) || [],
           status: msg.sender_id === userId ? (msg.message_reads?.length > 0 ? 'seen' : 'sent') : null,
+          reactions,
+          myReaction,
+          starred: (msg.starred_messages || []).length > 0,
         };
       });
 
@@ -95,7 +111,7 @@ export function useMessages(conversationId, userId) {
     fetchMessages();
   }, [conversationId, fetchMessages]);
 
-  // Realtime: new + edited/deleted messages
+  // Realtime: new + edited/deleted messages, reactions
   useEffect(() => {
     if (!conversationId) return;
     if (channelRef.current) supabase.removeChannel(channelRef.current);
@@ -117,6 +133,7 @@ export function useMessages(conversationId, userId) {
             text: msg.deleted_at ? '' : msg.text,
             deletedAt: msg.deleted_at,
             editedAt: msg.edited_at,
+            forwarded: !!msg.forwarded,
             type: msg.type,
             file_url: msg.deleted_at ? null : msg.file_url,
             duration: msg.duration,
@@ -124,6 +141,9 @@ export function useMessages(conversationId, userId) {
             replyPreview: replyMsg ? { text: replyMsg.type === 'voice' ? 'Voice message' : replyMsg.type === 'image' ? 'Photo' : replyMsg.text, sender: replyMsg.from === 'me' ? 'You' : (replyMsg.senderName || 'them') } : null,
             time: msg.created_at,
             status: null,
+            reactions: {},
+            myReaction: null,
+            starred: false,
           }];
         });
       })
@@ -140,6 +160,28 @@ export function useMessages(conversationId, userId) {
         event: 'INSERT', schema: 'public', table: 'message_reads',
         filter: `conversation_id=eq.${conversationId}`,
       }, () => { fetchMessages(); })
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'message_reactions',
+        filter: `conversation_id=eq.${conversationId}`,
+      }, (payload) => {
+        const row = payload.eventType === 'DELETE' ? payload.old : payload.new;
+        const messageId = row.message_id;
+        setMessages(prev => prev.map(m => {
+          if (m.id !== messageId) return m;
+          const reactions = { ...(m.reactions || {}) };
+          // clear this user's prior reaction on this message first
+          Object.keys(reactions).forEach(em => {
+            reactions[em] = reactions[em].filter(uid => uid !== row.user_id);
+            if (reactions[em].length === 0) delete reactions[em];
+          });
+          if (payload.eventType !== 'DELETE') {
+            const emoji = payload.new.emoji;
+            reactions[emoji] = [...(reactions[emoji] || []), row.user_id];
+          }
+          const myReaction = Object.entries(reactions).find(([, uids]) => uids.includes(userId))?.[0] || null;
+          return { ...m, reactions, myReaction };
+        }));
+      })
       .subscribe();
 
     return () => { if (channelRef.current) supabase.removeChannel(channelRef.current); };
@@ -185,6 +227,7 @@ export function useMessages(conversationId, userId) {
       replyPreview: replyToId ? getReplyPreview(replyToId) : null,
       time: new Date().toISOString(), status: 'sending', deletedAt: null,
       file_url: file ? URL.createObjectURL(file) : null, // local preview while uploading
+      reactions: {}, myReaction: null, starred: false, forwarded: false,
     }]);
 
     let file_url = null;
@@ -249,10 +292,59 @@ export function useMessages(conversationId, userId) {
     setMessages(prev => prev.map(m => m.id === messageId ? { ...m, deletedAt: new Date().toISOString(), text: '', file_url: null } : m));
   }, [userId, messages]);
 
+  const toggleReaction = useCallback(async (messageId, emoji) => {
+    if (!userId) return;
+    const msg = messages.find(m => m.id === messageId);
+    const current = msg?.myReaction || null;
+
+    // optimistic update
+    setMessages(prev => prev.map(m => {
+      if (m.id !== messageId) return m;
+      const reactions = { ...(m.reactions || {}) };
+      Object.keys(reactions).forEach(em => {
+        reactions[em] = reactions[em].filter(uid => uid !== userId);
+        if (reactions[em].length === 0) delete reactions[em];
+      });
+      let myReaction = null;
+      if (current !== emoji) {
+        reactions[emoji] = [...(reactions[emoji] || []), userId];
+        myReaction = emoji;
+      }
+      return { ...m, reactions, myReaction };
+    }));
+
+    if (current === emoji) {
+      const { error } = await supabase.from('message_reactions').delete().eq('message_id', messageId).eq('user_id', userId);
+      if (error) console.error('Remove reaction error:', error);
+    } else {
+      const { error } = await supabase.from('message_reactions')
+        .upsert({ message_id: messageId, user_id: userId, emoji }, { onConflict: 'message_id,user_id' });
+      if (error) console.error('React error:', error);
+    }
+  }, [messages, userId]);
+
+  const toggleStar = useCallback(async (messageId) => {
+    if (!userId) return;
+    const msg = messages.find(m => m.id === messageId);
+    const isStarred = !!msg?.starred;
+    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, starred: !isStarred } : m));
+    if (isStarred) {
+      const { error } = await supabase.from('starred_messages').delete().eq('message_id', messageId).eq('user_id', userId);
+      if (error) console.error('Unstar error:', error);
+    } else {
+      const { error } = await supabase.from('starred_messages').insert({ message_id: messageId, user_id: userId });
+      if (error) console.error('Star error:', error);
+    }
+  }, [messages, userId]);
+
   const loadMore = useCallback(() => {
     if (!hasMore || loading || messages.length === 0) return;
     fetchMessages(messages[0]?.time);
   }, [messages, hasMore, loading, fetchMessages]);
 
-  return { messages, loading, hasMore, typingUsers, blockedError, sendMessage, editMessage, deleteMessage, setTyping, loadMore };
+  return {
+    messages, loading, hasMore, typingUsers, blockedError,
+    sendMessage, editMessage, deleteMessage, toggleReaction, toggleStar,
+    setTyping, loadMore,
+  };
 }

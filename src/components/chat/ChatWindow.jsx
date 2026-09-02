@@ -2,16 +2,23 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Phone, Video, MoreVertical } from 'lucide-react';
 import { useMessages } from '../../hooks/useMessages.js';
+import { useConversations } from '../../hooks/useConversations.js';
 import { COLORS } from '../../utils/constants.js';
 import { formatLastSeen } from '../../utils/formatters.js';
 import Avatar from '../ui/Avatar.jsx';
 import MessageBubble from './MessageBubble.jsx';
 import Composer from './Composer.jsx';
+import ForwardModal from './ForwardModal.jsx';
 
 export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
   const scrollRef = useRef(null);
-  const { messages, loading, sendMessage, editMessage, deleteMessage, typingUsers, setTyping, blockedError } = useMessages(conversation?.id, userId);
+  const {
+    messages, loading, sendMessage, editMessage, deleteMessage,
+    toggleReaction, toggleStar, typingUsers, setTyping, blockedError,
+  } = useMessages(conversation?.id, userId);
+  const { conversations } = useConversations();
   const [replyTo, setReplyTo] = useState(null);
+  const [forwardTarget, setForwardTarget] = useState(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -59,7 +66,7 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1 min-h-0">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 min-h-0">
         {messages.length === 0 && !loading && (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
@@ -72,7 +79,19 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
           const prev = messages[idx - 1];
           const showAvatar = isGroup && msg.from === 'them' && (!prev || prev.from !== 'them' || prev.senderName !== msg.senderName);
           return (
-            <MessageBubble key={msg.id} msg={msg} showAvatar={showAvatar} isGroup={isGroup} onReply={setReplyTo} onEdit={editMessage} onDelete={deleteMessage} />
+            <MessageBubble
+              key={msg.id}
+              msg={msg}
+              showAvatar={showAvatar}
+              isGroup={isGroup}
+              currentUserId={userId}
+              onReply={setReplyTo}
+              onEdit={editMessage}
+              onDelete={deleteMessage}
+              onReact={toggleReaction}
+              onToggleStar={toggleStar}
+              onForward={setForwardTarget}
+            />
           );
         })}
         {loading && messages.length === 0 && (
@@ -89,6 +108,15 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
       )}
 
       <Composer onSend={sendMessage} disabled={!userId} replyTo={replyTo} onCancelReply={() => setReplyTo(null)} onTypingChange={setTyping} />
+
+      {forwardTarget && (
+        <ForwardModal
+          message={forwardTarget}
+          conversations={conversations}
+          userId={userId}
+          onClose={() => setForwardTarget(null)}
+        />
+      )}
     </div>
   );
 }
