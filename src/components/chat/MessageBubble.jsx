@@ -1,58 +1,37 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Check, CheckCheck, MoreVertical, Reply, Trash2, Pencil, X as XIcon, Check as CheckIcon } from 'lucide-react';
+import React, { useState } from 'react';
+import { Check, CheckCheck, MoreVertical, Reply, Trash2, Pencil, X } from 'lucide-react';
 import Avatar from '../ui/Avatar.jsx';
 import { formatMessageTime } from '../../utils/formatters.js';
 import { COLORS } from '../../utils/constants.js';
 
-export default function MessageBubble({ msg, showAvatar, isGroup, onReply, onDelete, onEdit }) {
+export default function MessageBubble({ msg, showAvatar, isGroup, onReply, onEdit, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false); // false | 'me' | 'everyone'
+  const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(msg.text || '');
-  const editRef = useRef(null);
-
   const isMe = msg.from === 'me';
   const isVoice = msg.type === 'voice';
   const isImage = msg.type === 'image';
   const isDeleted = !!msg.deletedAt;
-  const isEdited = !!msg.editedAt && !isDeleted;
-  const canEdit = isMe && !isDeleted && !isVoice && !isImage;
+  const isTextMsg = !isVoice && !isImage;
 
-  useEffect(() => {
-    if (editing) {
-      editRef.current?.focus();
-      editRef.current?.setSelectionRange(editText.length, editText.length);
-    }
-  }, [editing]);
+  const closeMenus = () => { setMenuOpen(false); setDeleteMenuOpen(false); };
 
   const startEdit = () => {
     setEditText(msg.text || '');
     setEditing(true);
-    setMenuOpen(false);
+    closeMenus();
   };
 
   const submitEdit = () => {
     const trimmed = editText.trim();
-    if (!trimmed) { setEditing(false); return; }
-    if (trimmed !== msg.text) onEdit?.(msg.id, trimmed);
+    if (trimmed && trimmed !== msg.text) onEdit?.(msg.id, trimmed);
     setEditing(false);
   };
 
-  const cancelEdit = () => { setEditing(false); setEditText(msg.text || ''); };
-
-  const handleEditKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitEdit(); }
-    if (e.key === 'Escape') cancelEdit();
-  };
-
-  const requestDelete = (scope) => {
-    setMenuOpen(false);
-    setConfirmDelete(scope);
-  };
-
-  const confirmDeleteNow = () => {
-    onDelete?.(msg.id, confirmDelete);
-    setConfirmDelete(false);
+  const cancelEdit = () => {
+    setEditText(msg.text || '');
+    setEditing(false);
   };
 
   return (
@@ -73,8 +52,9 @@ export default function MessageBubble({ msg, showAvatar, isGroup, onReply, onDel
                 backgroundColor: isMe ? COLORS.sentBubble : COLORS.receivedBubble,
                 color: isDeleted ? COLORS.textMuted : COLORS.text,
                 borderRadius: isMe ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
-                maxWidth: editing ? 260 : '100%',
+                maxWidth: '100%',
                 fontStyle: isDeleted ? 'italic' : 'normal',
+                minWidth: editing ? 220 : undefined,
               }}
             >
               {!isDeleted && !editing && msg.replyPreview && (
@@ -89,17 +69,20 @@ export default function MessageBubble({ msg, showAvatar, isGroup, onReply, onDel
               ) : editing ? (
                 <div className="flex flex-col gap-1.5">
                   <textarea
-                    ref={editRef}
+                    autoFocus
                     value={editText}
                     onChange={(e) => setEditText(e.target.value)}
-                    onKeyDown={handleEditKeyDown}
-                    rows={Math.min(6, Math.max(1, editText.split('\n').length))}
-                    className="bg-transparent outline-none text-sm resize-none w-full"
-                    style={{ color: COLORS.text, minWidth: 160 }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitEdit(); }
+                      if (e.key === 'Escape') cancelEdit();
+                    }}
+                    rows={2}
+                    className="w-full bg-transparent outline-none text-sm resize-none border rounded px-2 py-1"
+                    style={{ color: COLORS.text, borderColor: COLORS.panelBorder }}
                   />
-                  <div className="flex items-center justify-end gap-1">
-                    <button onClick={cancelEdit} className="p-1 rounded-full hover:bg-black/10"><XIcon size={14} color={COLORS.textMuted} /></button>
-                    <button onClick={submitEdit} className="p-1 rounded-full hover:bg-black/10"><CheckIcon size={14} color={COLORS.primary} /></button>
+                  <div className="flex items-center justify-end gap-2">
+                    <button onClick={cancelEdit} className="text-xs px-2 py-1 rounded hover:bg-black/5" style={{ color: COLORS.textMuted }}>Cancel</button>
+                    <button onClick={submitEdit} className="text-xs px-2 py-1 rounded font-medium hover:bg-black/5" style={{ color: COLORS.primary }}>Save</button>
                   </div>
                 </div>
               ) : isImage && msg.file_url ? (
@@ -118,7 +101,7 @@ export default function MessageBubble({ msg, showAvatar, isGroup, onReply, onDel
 
               {!isDeleted && !editing && (
                 <div className="flex items-center justify-end gap-1 mt-0.5">
-                  {isEdited && <span className="text-[10px] italic" style={{ color: COLORS.textMuted }}>edited</span>}
+                  {msg.editedAt && <span className="text-[10px] italic" style={{ color: COLORS.textMuted }}>edited</span>}
                   <span className="text-[10px]" style={{ color: COLORS.textMuted }}>{formatMessageTime(msg.time)}</span>
                   {isMe && (
                     msg.status === 'seen' ? <CheckCheck size={14} color={COLORS.checkRead} strokeWidth={2.5} />
@@ -131,25 +114,46 @@ export default function MessageBubble({ msg, showAvatar, isGroup, onReply, onDel
 
             {!isDeleted && !editing && (
               <div className="relative opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                <button onClick={() => setMenuOpen(!menuOpen)} className="p-1 rounded-full hover:bg-black/5">
+                <button onClick={() => { setMenuOpen(!menuOpen); setDeleteMenuOpen(false); }} className="p-1 rounded-full hover:bg-black/5">
                   <MoreVertical size={14} color={COLORS.textMuted} />
                 </button>
                 {menuOpen && (
-                  <div className="absolute top-full mt-1 rounded-lg shadow-lg py-1 z-50 min-w-[150px]" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}`, [isMe ? 'right' : 'left']: 0 }}>
-                    <button onClick={() => { onReply?.(msg); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
+                  <div className="absolute top-full mt-1 rounded-lg shadow-lg py-1 z-50 min-w-[140px]" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}`, [isMe ? 'right' : 'left']: 0 }}>
+                    <button onClick={() => { onReply?.(msg); closeMenus(); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
                       <Reply size={14} color={COLORS.text} /> Reply
                     </button>
-                    {canEdit && (
+                    {isMe && isTextMsg && (
                       <button onClick={startEdit} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
                         <Pencil size={14} color={COLORS.text} /> Edit
                       </button>
                     )}
-                    <button onClick={() => requestDelete('me')} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
-                      <Trash2 size={14} color={COLORS.danger} /> Delete for me
+                    <button
+                      onClick={() => { setDeleteMenuOpen(true); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
+                    >
+                      <Trash2 size={14} color={COLORS.danger} /> Delete
+                    </button>
+                  </div>
+                )}
+                {deleteMenuOpen && (
+                  <div className="absolute top-full mt-1 rounded-lg shadow-lg py-1 z-50 min-w-[170px]" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}`, [isMe ? 'right' : 'left']: 0 }}>
+                    <div className="flex items-center justify-between px-3 py-1.5">
+                      <span className="text-[10px] font-semibold uppercase" style={{ color: COLORS.textMuted }}>Delete message</span>
+                      <button onClick={closeMenus}><X size={12} color={COLORS.textMuted} /></button>
+                    </div>
+                    <button
+                      onClick={() => { onDelete?.(msg.id, 'me'); closeMenus(); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
+                    >
+                      Delete for me
                     </button>
                     {isMe && (
-                      <button onClick={() => requestDelete('everyone')} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
-                        <Trash2 size={14} color={COLORS.danger} /> Delete for everyone
+                      <button
+                        onClick={() => { if (confirm('Delete this message for everyone?')) { onDelete?.(msg.id, 'everyone'); } closeMenus(); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
+                        style={{ color: COLORS.danger }}
+                      >
+                        Delete for everyone
                       </button>
                     )}
                   </div>
@@ -157,20 +161,6 @@ export default function MessageBubble({ msg, showAvatar, isGroup, onReply, onDel
               </div>
             )}
           </div>
-
-          {confirmDelete && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }} onClick={() => setConfirmDelete(false)}>
-              <div className="rounded-lg shadow-xl p-4 w-72" style={{ backgroundColor: COLORS.bg }} onClick={(e) => e.stopPropagation()}>
-                <div className="text-sm mb-3" style={{ color: COLORS.text }}>
-                  {confirmDelete === 'everyone' ? 'Delete this message for everyone?' : 'Delete this message for you?'}
-                </div>
-                <div className="flex justify-end gap-2">
-                  <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-xs rounded-md hover:bg-black/5" style={{ color: COLORS.textMuted }}>Cancel</button>
-                  <button onClick={confirmDeleteNow} className="px-3 py-1.5 text-xs rounded-md text-white" style={{ backgroundColor: COLORS.danger }}>Delete</button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
