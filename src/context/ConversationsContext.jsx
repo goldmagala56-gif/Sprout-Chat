@@ -21,7 +21,7 @@ export function ConversationsProvider({ children }) {
         unread_count,
         is_muted, is_archived, is_pinned, pinned_at,
         conversations!inner(
-          id, name, is_group, created_at, updated_at,
+          id, name, is_group, avatar_url, created_at, updated_at,
           conversation_participants(
             user_id,
             profiles:user_id(id, name, initials, avatar_url, online, last_seen)

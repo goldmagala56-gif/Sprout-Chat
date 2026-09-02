@@ -10,6 +10,7 @@ export function useMessages(conversationId, userId) {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [typingUsers, setTypingUsers] = useState({});
+  const [blockedError, setBlockedError] = useState(null);
   const channelRef = useRef(null);
   const typingChannelRef = useRef(null);
 
@@ -20,7 +21,7 @@ export function useMessages(conversationId, userId) {
     let query = supabase
       .from('messages')
       .select(`
-        id, conversation_id, sender_id, text, type, file_url, duration, reply_to, deleted_at, created_at,
+        id, conversation_id, sender_id, text, type, file_url, duration, reply_to, deleted_at, edited_at, created_at,
         profiles:sender_id(id, name, initials, avatar_url),
         message_reads(user_id)
       `)
@@ -33,31 +34,46 @@ export function useMessages(conversationId, userId) {
     const { data, error } = await query;
     if (error) { console.error('Fetch messages error:', error); setLoading(false); return; }
 
+    let hiddenIds = new Set();
+    if (userId && (data || []).length > 0) {
+      const { data: hiddenRows, error: hiddenErr } = await supabase
+        .from('message_hidden_for')
+        .select('message_id')
+        .eq('user_id', userId)
+        .in('message_id', data.map(m => m.id));
+      if (hiddenErr) console.error('Fetch hidden messages error:', hiddenErr);
+      hiddenIds = new Set((hiddenRows || []).map(r => r.message_id));
+    }
+
     const idMap = {};
     (data || []).forEach(m => { idMap[m.id] = m; });
 
-    const formatted = (data || []).reverse().map(msg => {
-      const replyMsg = msg.reply_to ? idMap[msg.reply_to] : null;
-      return {
-        id: msg.id,
-        from: msg.sender_id === userId ? 'me' : 'them',
-        text: msg.deleted_at ? '' : msg.text,
-        deletedAt: msg.deleted_at,
-        type: msg.type,
-        file_url: msg.deleted_at ? null : msg.file_url,
-        duration: msg.duration,
-        replyToId: msg.reply_to,
-        replyPreview: replyMsg ? {
-          text: replyMsg.type === 'voice' ? 'Voice message' : replyMsg.type === 'image' ? 'Photo' : replyMsg.text,
-          sender: replyMsg.sender_id === userId ? 'You' : (replyMsg.profiles?.name || 'them'),
-        } : null,
-        time: msg.created_at,
-        senderName: msg.profiles?.name,
-        senderAvatar: msg.profiles?.avatar_url,
-        readBy: msg.message_reads?.map(r => r.user_id) || [],
-        status: msg.sender_id === userId ? (msg.message_reads?.length > 0 ? 'seen' : 'sent') : null,
-      };
-    });
+    const formatted = (data || [])
+      .filter(m => !hiddenIds.has(m.id))
+      .reverse()
+      .map(msg => {
+        const replyMsg = msg.reply_to ? idMap[msg.reply_to] : null;
+        return {
+          id: msg.id,
+          from: msg.sender_id === userId ? 'me' : 'them',
+          text: msg.deleted_at ? '' : msg.text,
+          deletedAt: msg.deleted_at,
+          editedAt: msg.edited_at,
+          type: msg.type,
+          file_url: msg.deleted_at ? null : msg.file_url,
+          duration: msg.duration,
+          replyToId: msg.reply_to,
+          replyPreview: replyMsg ? {
+            text: replyMsg.type === 'voice' ? 'Voice message' : replyMsg.type === 'image' ? 'Photo' : replyMsg.text,
+            sender: replyMsg.sender_id === userId ? 'You' : (replyMsg.profiles?.name || 'them'),
+          } : null,
+          time: msg.created_at,
+          senderName: msg.profiles?.name,
+          senderAvatar: msg.profiles?.avatar_url,
+          readBy: msg.message_reads?.map(r => r.user_id) || [],
+          status: msg.sender_id === userId ? (msg.message_reads?.length > 0 ? 'seen' : 'sent') : null,
+        };
+      });
 
     if (before) {
       setMessages(prev => [...formatted, ...prev]);
@@ -75,6 +91,7 @@ export function useMessages(conversationId, userId) {
 
   useEffect(() => {
     if (!conversationId) { setMessages([]); return; }
+    setBlockedError(null);
     fetchMessages();
   }, [conversationId, fetchMessages]);
 
@@ -99,6 +116,7 @@ export function useMessages(conversationId, userId) {
             from: 'them',
             text: msg.deleted_at ? '' : msg.text,
             deletedAt: msg.deleted_at,
+            editedAt: msg.edited_at,
             type: msg.type,
             file_url: msg.deleted_at ? null : msg.file_url,
             duration: msg.duration,
@@ -115,11 +133,12 @@ export function useMessages(conversationId, userId) {
       }, (payload) => {
         const msg = payload.new;
         setMessages(prev => prev.map(m => m.id === msg.id
-          ? { ...m, deletedAt: msg.deleted_at, text: msg.deleted_at ? '' : msg.text, file_url: msg.deleted_at ? null : m.file_url }
+          ? { ...m, deletedAt: msg.deleted_at, editedAt: msg.edited_at, text: msg.deleted_at ? '' : msg.text, file_url: msg.deleted_at ? null : m.file_url }
           : m));
       })
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'message_reads',
+        filter: `conversation_id=eq.${conversationId}`,
       }, () => { fetchMessages(); })
       .subscribe();
 
@@ -159,6 +178,7 @@ export function useMessages(conversationId, userId) {
     if (!conversationId || !userId) return;
     if (!text.trim() && !file) return;
 
+    setBlockedError(null);
     const tempId = `temp-${Date.now()}`;
     setMessages(prev => [...prev, {
       id: tempId, from: 'me', text: text.trim(), type, duration, replyToId,
@@ -189,23 +209,50 @@ export function useMessages(conversationId, userId) {
 
     if (error) {
       console.error('Send message error:', error);
-      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' } : m));
+      const isBlocked = error.code === '42501' || /row-level security|policy/i.test(error.message || '');
+      if (isBlocked) {
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+        setBlockedError("You can't message this contact.");
+      } else {
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'failed' } : m));
+      }
       return;
     }
 
     setMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: data.id, file_url: file_url || m.file_url, status: 'sent' } : m));
   }, [conversationId, userId, getReplyPreview]);
 
-  const deleteMessage = useCallback(async (messageId) => {
+  const editMessage = useCallback(async (messageId, newText) => {
+    const prevMessages = messages;
+    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, text: newText, editedAt: new Date().toISOString() } : m));
+    const { error } = await supabase
+      .from('messages')
+      .update({ text: newText, edited_at: new Date().toISOString() })
+      .eq('id', messageId);
+    if (error) {
+      console.error('Edit message error:', error);
+      setMessages(prevMessages); // revert optimistic edit
+    }
+  }, [messages]);
+
+  const deleteMessage = useCallback(async (messageId, scope = 'everyone') => {
+    if (scope === 'me') {
+      const prevMessages = messages;
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      if (!userId) return;
+      const { error } = await supabase.from('message_hidden_for').insert({ message_id: messageId, user_id: userId });
+      if (error) { console.error('Delete-for-me error:', error); setMessages(prevMessages); }
+      return;
+    }
     const { error } = await supabase.from('messages').update({ deleted_at: new Date().toISOString() }).eq('id', messageId);
     if (error) { console.error('Delete message error:', error); return; }
     setMessages(prev => prev.map(m => m.id === messageId ? { ...m, deletedAt: new Date().toISOString(), text: '', file_url: null } : m));
-  }, []);
+  }, [userId, messages]);
 
   const loadMore = useCallback(() => {
     if (!hasMore || loading || messages.length === 0) return;
     fetchMessages(messages[0]?.time);
   }, [messages, hasMore, loading, fetchMessages]);
 
-  return { messages, loading, hasMore, typingUsers, sendMessage, deleteMessage, setTyping, loadMore };
+  return { messages, loading, hasMore, typingUsers, blockedError, sendMessage, editMessage, deleteMessage, setTyping, loadMore };
 }

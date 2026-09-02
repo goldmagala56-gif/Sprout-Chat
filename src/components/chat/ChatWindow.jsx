@@ -10,7 +10,7 @@ import Composer from './Composer.jsx';
 
 export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
   const scrollRef = useRef(null);
-  const { messages, loading, sendMessage, deleteMessage, typingUsers, setTyping } = useMessages(conversation?.id, userId);
+  const { messages, loading, sendMessage, editMessage, deleteMessage, typingUsers, setTyping, blockedError } = useMessages(conversation?.id, userId);
   const [replyTo, setReplyTo] = useState(null);
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
           const prev = messages[idx - 1];
           const showAvatar = isGroup && msg.from === 'them' && (!prev || prev.from !== 'them' || prev.senderName !== msg.senderName);
           return (
-            <MessageBubble key={msg.id} msg={msg} showAvatar={showAvatar} isGroup={isGroup} onReply={setReplyTo} onDelete={deleteMessage} />
+            <MessageBubble key={msg.id} msg={msg} showAvatar={showAvatar} isGroup={isGroup} onReply={setReplyTo} onEdit={editMessage} onDelete={deleteMessage} />
           );
         })}
         {loading && messages.length === 0 && (
@@ -81,6 +81,12 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
           </div>
         )}
       </div>
+
+      {blockedError && (
+        <div className="px-4 py-2 text-xs text-center flex-shrink-0" style={{ backgroundColor: '#FEF2F2', color: COLORS.danger }}>
+          {blockedError}
+        </div>
+      )}
 
       <Composer onSend={sendMessage} disabled={!userId} replyTo={replyTo} onCancelReply={() => setReplyTo(null)} onTypingChange={setTyping} />
     </div>
