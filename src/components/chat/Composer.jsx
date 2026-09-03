@@ -1,17 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Smile, Mic, Camera, Image, Square, X } from 'lucide-react';
+import { Send, Paperclip, Smile, Mic, Camera, Image, FileText, Square, X } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import { COLORS } from '../../utils/constants.js';
 
-export default function Composer({ onSend, disabled, replyTo, onCancelReply, onTypingChange }) {
+export default function Composer({ onSend, disabled, replyTo, onCancelReply, onTypingChange, isGroup, members = [] }) {
   const [text, setText] = useState('');
   const [showAttach, setShowAttach] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
+  const [mentionQuery, setMentionQuery] = useState(null);
+  const [mentionedIds, setMentionedIds] = useState([]);
   const inputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const docInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const recordTimerRef = useRef(null);
@@ -27,27 +30,55 @@ export default function Composer({ onSend, disabled, replyTo, onCancelReply, onT
 
   useEffect(() => () => { if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); }, []);
 
-  const handleSend = () => {
-    const trimmed = text.trim();
-    if (!trimmed || disabled) return;
-    onSend({ text: trimmed, type: 'text', replyToId: replyTo?.id || null });
+  const resetComposer = () => {
     setText('');
+    setMentionedIds([]);
+    setMentionQuery(null);
     setShowAttach(false);
     setShowEmoji(false);
     onTypingChange?.(false);
     inputRef.current?.focus();
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  const handleSend = () => {
+    const trimmed = text.trim();
+    if (!trimmed || disabled) return;
+    onSend({ text: trimmed, type: 'text', replyToId: replyTo?.id || null, mentions: mentionedIds });
+    resetComposer();
   };
 
-  const handleFilePicked = (e) => {
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && mentionQuery === null) { e.preventDefault(); handleSend(); }
+  };
+
+  const handleTextChange = (e) => {
+    const value = e.target.value;
+    setText(value);
+    notifyTyping();
+
+    if (!isGroup) return;
+    const match = value.match(/@([a-zA-Z0-9_]*)$/);
+    setMentionQuery(match ? match[1] : null);
+  };
+
+  const filteredMembers = mentionQuery !== null
+    ? members.filter(m => m.name.toLowerCase().includes(mentionQuery.toLowerCase()))
+    : [];
+
+  const pickMention = (member) => {
+    setText(prev => prev.replace(/@([a-zA-Z0-9_]*)$/, `@${member.name} `));
+    setMentionedIds(prev => prev.includes(member.id) ? prev : [...prev, member.id]);
+    setMentionQuery(null);
+    inputRef.current?.focus();
+  };
+
+  const handleFilePicked = (e, forcedType) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     setShowAttach(false);
     if (!file) return;
-    onSend({ type: 'image', file, replyToId: replyTo?.id || null });
+    const type = forcedType || (file.type?.startsWith('image/') ? 'image' : 'file');
+    onSend({ type, file, replyToId: replyTo?.id || null });
   };
 
   const handleEmojiClick = (emojiData) => {
@@ -93,9 +124,19 @@ export default function Composer({ onSend, disabled, replyTo, onCancelReply, onT
           <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ backgroundColor: COLORS.primary }} />
           <div className="flex-1 min-w-0">
             <div className="text-xs font-semibold" style={{ color: COLORS.primary }}>{replyTo.senderName || (replyTo.from === 'me' ? 'You' : 'Them')}</div>
-            <div className="text-xs truncate" style={{ color: COLORS.textMuted }}>{replyTo.type === 'voice' ? 'Voice message' : replyTo.type === 'image' ? 'Photo' : replyTo.text}</div>
+            <div className="text-xs truncate" style={{ color: COLORS.textMuted }}>{replyTo.type === 'voice' ? 'Voice message' : replyTo.type === 'image' ? 'Photo' : replyTo.type === 'file' ? (replyTo.file_name || 'File') : replyTo.text}</div>
           </div>
           <button onClick={onCancelReply} className="p-1 flex-shrink-0"><X size={16} color={COLORS.textMuted} /></button>
+        </div>
+      )}
+
+      {mentionQuery !== null && filteredMembers.length > 0 && (
+        <div className="absolute bottom-full left-3 right-3 mb-1 rounded-lg shadow-lg py-1 z-50 max-h-40 overflow-y-auto" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}>
+          {filteredMembers.map(m => (
+            <button key={m.id} onClick={() => pickMention(m)} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left">
+              <span style={{ color: COLORS.text }}>{m.name}</span>
+            </button>
+          ))}
         </div>
       )}
 
@@ -115,10 +156,15 @@ export default function Composer({ onSend, disabled, replyTo, onCancelReply, onT
             <div className="p-2 rounded-full" style={{ backgroundColor: '#FF2E74' }}><Camera size={18} color="white" /></div>
             <span className="text-[10px]" style={{ color: COLORS.textMuted }}>Camera</span>
           </button>
+          <button className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-gray-50 transition-colors" onClick={() => docInputRef.current?.click()}>
+            <div className="p-2 rounded-full" style={{ backgroundColor: '#0891B2' }}><FileText size={18} color="white" /></div>
+            <span className="text-[10px]" style={{ color: COLORS.textMuted }}>Document</span>
+          </button>
         </div>
       )}
-      <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={handleFilePicked} />
-      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFilePicked} />
+      <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFilePicked(e, 'image')} />
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFilePicked(e, 'image')} />
+      <input ref={docInputRef} type="file" className="hidden" onChange={(e) => handleFilePicked(e, 'file')} />
 
       {recording ? (
         <div className="flex items-center gap-3 px-4 py-3">
@@ -141,9 +187,9 @@ export default function Composer({ onSend, disabled, replyTo, onCancelReply, onT
             <textarea
               ref={inputRef}
               value={text}
-              onChange={(e) => { setText(e.target.value); notifyTyping(); }}
+              onChange={handleTextChange}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message"
+              placeholder={isGroup ? 'Type a message, @ to mention' : 'Type a message'}
               rows={1}
               className="flex-1 bg-transparent outline-none text-sm resize-none py-1.5 max-h-32"
               style={{ color: COLORS.text }}

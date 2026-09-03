@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
-import { Check, CheckCheck, MoreVertical, Reply, Trash2, Pencil, X, Star, Forward, SmilePlus } from 'lucide-react';
+import { Check, CheckCheck, MoreVertical, Reply, Trash2, Pencil, X, Star, Forward, SmilePlus, FileText, Download } from 'lucide-react';
 import Avatar from '../ui/Avatar.jsx';
 import { formatMessageTime } from '../../utils/formatters.js';
 import { COLORS } from '../../utils/constants.js';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+function formatFileSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId, onReply, onEdit, onDelete, onReact, onToggleStar, onForward }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -15,8 +22,9 @@ export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId,
   const isMe = msg.from === 'me';
   const isVoice = msg.type === 'voice';
   const isImage = msg.type === 'image';
+  const isFile = msg.type === 'file';
   const isDeleted = !!msg.deletedAt;
-  const isTextMsg = !isVoice && !isImage;
+  const isTextMsg = !isVoice && !isImage && !isFile;
   const reactionEntries = Object.entries(msg.reactions || {});
 
   const closeMenus = () => { setMenuOpen(false); setDeleteMenuOpen(false); setReactMenuOpen(false); };
@@ -106,6 +114,23 @@ export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId,
                   <audio src={msg.file_url} controls className="max-w-[180px] h-8" />
                   <span className="text-xs flex-shrink-0" style={{ color: COLORS.textMuted }}>{msg.duration || '0:00'}</span>
                 </div>
+              ) : isFile ? (
+                <a
+                  href={msg.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download={msg.file_name}
+                  className="flex items-center gap-2 min-w-[180px] max-w-[240px] hover:opacity-80 transition-opacity"
+                >
+                  <div className="flex items-center justify-center rounded-lg flex-shrink-0" style={{ width: 36, height: 36, backgroundColor: COLORS.primary }}>
+                    <FileText size={18} color="white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate" style={{ color: COLORS.text }}>{msg.file_name || 'Document'}</div>
+                    <div className="text-[10px]" style={{ color: COLORS.textMuted }}>{formatFileSize(msg.file_size)}</div>
+                  </div>
+                  <Download size={14} color={COLORS.textMuted} className="flex-shrink-0" />
+                </a>
               ) : (
                 <div className="break-words whitespace-pre-wrap">{msg.text}</div>
               )}
