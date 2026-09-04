@@ -92,10 +92,10 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
         <div className="flex items-center gap-3 flex-shrink-0 relative">
           {!isGroup && (
             <>
-              <button onClick={() => handleCall('video')} disabled={!canCall} className="p-2 rounded-full hover:bg-black/5 transition-colors hidden sm:block disabled:opacity-40">
+              <button onClick={() => handleCall('video')} disabled={!canCall} className="p-2 rounded-full hover:bg-black/5 transition-colors disabled:opacity-40">
                 <Video size={20} color={COLORS.textMuted} />
               </button>
-              <button onClick={() => handleCall('voice')} disabled={!canCall} className="p-2 rounded-full hover:bg-black/5 transition-colors hidden sm:block disabled:opacity-40">
+              <button onClick={() => handleCall('voice')} disabled={!canCall} className="p-2 rounded-full hover:bg-black/5 transition-colors disabled:opacity-40">
                 <Phone size={18} color={COLORS.textMuted} />
               </button>
             </>

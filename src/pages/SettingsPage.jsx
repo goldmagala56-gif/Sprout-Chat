@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Volume2, Moon, Eye, Clock, Type, Shield, Smartphone, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Bell, Volume2, Moon, Eye, Clock, Type, Shield, Smartphone, HelpCircle, LogOut } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { COLORS } from '../utils/constants.js';
 import BottomNav from '../components/layout/BottomNav.jsx';
@@ -24,11 +24,17 @@ function SettingRow({ icon: Icon, label, sublabel, value, onChange }) {
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { profile, updateProfile } = useAuth();
+  const { profile, updateProfile, signOut } = useAuth();
   const s = profile?.settings || {};
 
   const updateSetting = (key, val) => {
     updateProfile({ settings: { ...s, [key]: val } });
+  };
+
+  const handleLogout = async () => {
+    if (!confirm('Log out of Sprout?')) return;
+    await signOut();
+    navigate('/login');
   };
 
   return (
@@ -80,6 +86,17 @@ export default function SettingsPage() {
             <div><div className="text-[15px]" style={{ color: COLORS.text }}>Help Center</div><div className="text-xs" style={{ color: COLORS.textMuted }}>Get support and FAQs</div></div>
           </div>
           <div className="py-4 text-center"><span className="text-xs" style={{ color: COLORS.textMuted }}>Sprout v2.0.0 — Built with Supabase</span></div>
+        </div>
+
+        <div className="px-4 py-2">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold"
+            style={{ color: COLORS.danger, backgroundColor: '#FEF2F2' }}
+          >
+            <LogOut size={18} />
+            Log out
+          </button>
         </div>
       </div>
 
