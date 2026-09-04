@@ -1,34 +1,104 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase.js';
-import { getDeviceId } from '../utils/deviceId.js';
+
+const DEVICE_ID_KEY = 'sprout_device_id';
+const HEARTBEAT_MS = 5 * 60 * 1000; // refresh last_active every 5 min while the tab is visible
+
+function getDeviceId() {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
+
+function getDeviceLabel() {
+  const ua = navigator.userAgent;
+  let os = 'Unknown device';
+  if (/iPhone|iPad|iPod/.test(ua)) os = 'iOS';
+  else if (/Android/.test(ua)) os = 'Android';
+  else if (/Mac OS X/.test(ua)) os = 'Mac';
+  else if (/Windows/.test(ua)) os = 'Windows';
+  else if (/Linux/.test(ua)) os = 'Linux';
+
+  let browser = 'Browser';
+  if (/Edg\//.test(ua)) browser = 'Edge';
+  else if (/Chrome\//.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//.test(ua)) browser = 'Firefox';
+  else if (/Safari\//.test(ua)) browser = 'Safari';
+
+  return `${browser} on ${os}`;
+}
 
 export function useSessions(userId) {
   const [sessions, setSessions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const currentDeviceId = useRef(getDeviceId()).current;
+  const heartbeatRef = useRef(null);
 
   const fetchSessions = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     const { data, error } = await supabase
       .from('user_sessions')
-      .select('*')
+      .select('id, device_id, device_label, last_active')
       .eq('user_id', userId)
       .order('last_active', { ascending: false });
-    if (error) console.error('Fetch sessions error:', error);
+    if (error) { console.error('Fetch sessions error:', error); setLoading(false); return; }
     setSessions(data || []);
     setLoading(false);
   }, [userId]);
 
-  useEffect(() => { fetchSessions(); }, [fetchSessions]);
+  // Register/refresh this device's own row so it shows up (and stays "active") in the list.
+  const touchSession = useCallback(async () => {
+    if (!userId) return;
+    const { error } = await supabase
+      .from('user_sessions')
+      .upsert(
+        { user_id: userId, device_id: currentDeviceId, device_label: getDeviceLabel(), last_active: new Date().toISOString() },
+        { onConflict: 'user_id,device_id' }
+      );
+    if (error) console.error('Touch session error:', error);
+  }, [userId, currentDeviceId]);
+
+  useEffect(() => {
+    if (!userId) { setSessions([]); return; }
+    touchSession().then(fetchSessions);
+
+    heartbeatRef.current = setInterval(() => {
+      if (document.visibilityState === 'visible') touchSession();
+    }, HEARTBEAT_MS);
+
+    return () => clearInterval(heartbeatRef.current);
+  }, [userId, touchSession, fetchSessions]);
+
+  // Live updates for the list, and — the important part — if THIS device's own
+  // row gets deleted (someone removed it from another device), force a real sign-out here.
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel(`sessions-${userId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'user_sessions',
+        filter: `user_id=eq.${userId}`,
+      }, (payload) => {
+        if (payload.eventType === 'DELETE' && payload.old?.device_id === currentDeviceId) {
+          supabase.auth.signOut(); // ProtectedRoute already redirects to /login when user becomes null
+          return;
+        }
+        fetchSessions();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userId, currentDeviceId, fetchSessions]);
 
   const removeSession = useCallback(async (sessionId) => {
+    const prev = sessions;
+    setSessions(s => s.filter(x => x.id !== sessionId));
     const { error } = await supabase.from('user_sessions').delete().eq('id', sessionId);
-    if (error) { console.error('Remove session error:', error); return false; }
-    setSessions(prev => prev.filter(s => s.id !== sessionId));
-    return true;
-  }, []);
+    if (error) { console.error('Remove session error:', error); setSessions(prev); }
+  }, [sessions]);
 
-  const currentDeviceId = getDeviceId();
-
-  return { sessions, loading, removeSession, currentDeviceId, refetch: fetchSessions };
+  return { sessions, loading, removeSession, currentDeviceId };
 }

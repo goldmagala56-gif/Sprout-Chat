@@ -12,7 +12,7 @@ import NewChatPage from './pages/NewChatPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import StatusPage from './pages/StatusPage.jsx';
-import JoinGroupPage from './pages/JoinGroupPage.jsx';
+import JoinGroupPage from './components/chat/JoinGroupPage.jsx';
 import SessionsPage from './pages/SessionsPage.jsx';
 
 function ProtectedRoute({ children }) {
