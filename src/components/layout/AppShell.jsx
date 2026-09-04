@@ -10,6 +10,8 @@ import ChatList from './ChatList.jsx';
 import BottomNav from './BottomNav.jsx';
 import CallOverlay from '../call/CallOverlay.jsx';
 
+const PENDING_INVITE_KEY = 'sprout_pending_invite';
+
 export default function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,6 +27,16 @@ export default function AppShell() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // If the user arrived via an invite link while signed out, JoinGroupPage
+  // stashed the code here. Now that we're authenticated and inside the
+  // protected app, send them back to finish joining.
+  useEffect(() => {
+    if (!user) return;
+    const pending = localStorage.getItem(PENDING_INVITE_KEY);
+    if (pending) navigate(`/join/${pending}`, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   const searched = conversations.filter(c =>
     c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.last?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -32,8 +44,6 @@ export default function AppShell() {
 
   const archivedList = searched.filter(c => c.isArchived);
   const activeList = searched.filter(c => !c.isArchived);
-  // Pinned chats float to the top, most-recently-pinned first; everything
-  // else keeps the existing most-recent-activity ordering.
   const sortedActive = [
     ...activeList.filter(c => c.isPinned).sort((a, b) => new Date(b.pinnedAt || 0) - new Date(a.pinnedAt || 0)),
     ...activeList.filter(c => !c.isPinned),
@@ -48,7 +58,6 @@ export default function AppShell() {
   return (
     <CallProvider>
       <div className="h-[100dvh] w-full flex overflow-hidden bg-white font-sans relative">
-        {/* ===== SIDEBAR (Chat List) ===== */}
         <div 
           className={`flex-col flex-shrink-0 border-r transition-transform duration-200
             ${showChatList ? 'flex' : 'hidden'}
@@ -56,7 +65,6 @@ export default function AppShell() {
           `}
           style={{ borderColor: COLORS.divider }}
         >
-          {/* Header */}
           <div 
             className="flex items-center justify-between px-4 py-3 flex-shrink-0"
             style={{ backgroundColor: COLORS.bgSecondary }}
@@ -80,7 +88,6 @@ export default function AppShell() {
             </div>
           </div>
 
-          {/* Search */}
           <div className="px-3 py-2 flex-shrink-0">
             <div 
               className="flex items-center gap-2 rounded-lg px-3 py-2"
@@ -97,7 +104,6 @@ export default function AppShell() {
             </div>
           </div>
 
-          {/* Archived toggle row */}
           {archivedList.length > 0 && (
             <button
               onClick={() => setShowArchived(!showArchived)}
@@ -112,7 +118,6 @@ export default function AppShell() {
             </button>
           )}
 
-          {/* Chat List */}
           <div className="flex-1 overflow-y-auto min-h-0">
             <ChatList 
               chats={filtered} 
@@ -124,7 +129,6 @@ export default function AppShell() {
             />
           </div>
 
-          {/* User footer - desktop only */}
           {!isMobile && (
             <div 
               className="flex items-center gap-3 px-4 py-3 border-t flex-shrink-0"
@@ -154,17 +158,14 @@ export default function AppShell() {
             </div>
           )}
 
-          {/* Bottom Nav - mobile only, on list view */}
           {isMobile && <BottomNav />}
         </div>
 
-        {/* ===== CHAT WINDOW AREA ===== */}
         <div 
           className={`flex-1 flex flex-col h-full relative
             ${showChatWindow ? 'flex' : 'hidden md:flex'}
           `}
         >
-          {/* Mobile: show back button when in chat */}
           {isMobile && isChatRoute && (
             <div 
               className="flex items-center gap-3 px-4 py-3 flex-shrink-0 md:hidden"

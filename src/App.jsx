@@ -13,6 +13,7 @@ import ProfilePage from './pages/ProfilePage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import StatusPage from './pages/StatusPage.jsx';
 import JoinGroupPage from './pages/JoinGroupPage.jsx';
+import SessionsPage from './pages/SessionsPage.jsx';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -30,6 +31,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/join/:code" element={<JoinGroupPage />} />
       <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
         <Route path="/" element={<ChatsPage />} />
         <Route path="/chat/:id" element={<ChatPage />} />
@@ -38,7 +40,7 @@ export default function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/status" element={<StatusPage />} />
-        <Route path="/join/:code" element={<JoinGroupPage />} />
+        <Route path="/sessions" element={<SessionsPage />} />
       </Route>
     </Routes>
   );

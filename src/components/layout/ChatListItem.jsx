@@ -1,11 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Check, BellOff, Pin, Archive, ArchiveRestore, MoreVertical } from 'lucide-react';
 import Avatar from '../ui/Avatar.jsx';
 import { formatChatListTime } from '../../utils/formatters.js';
 import { COLORS } from '../../utils/constants.js';
+import { useLongPress } from '../../hooks/useLongPress.js';
+import { useClickOutside } from '../../hooks/useClickOutside.js';
 
 export default function ChatListItem({ chat, isActive, onClick, onMute, onArchive, onPin }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useClickOutside(menuRef, menuOpen, () => setMenuOpen(false));
+
+  const pressHandlers = useLongPress({
+    onClick,
+    onLongPress: () => setMenuOpen(true),
+  });
 
   return (
     <div
@@ -15,7 +25,7 @@ export default function ChatListItem({ chat, isActive, onClick, onMute, onArchiv
         borderBottom: `1px solid ${COLORS.divider}`,
       }}
     >
-      <button onClick={onClick} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+      <button {...pressHandlers} className="flex items-center gap-3 flex-1 min-w-0 text-left select-none">
         <Avatar
           url={chat.avatar_url}
           initials={chat.initials}
@@ -57,12 +67,13 @@ export default function ChatListItem({ chat, isActive, onClick, onMute, onArchiv
       <div className="relative flex-shrink-0">
         <button
           onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-          className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/5 transition-opacity"
+          className="p-1.5 rounded-full hover:bg-black/5 transition-opacity"
         >
           <MoreVertical size={16} color={COLORS.textMuted} />
         </button>
         {menuOpen && (
           <div
+            ref={menuRef}
             className="absolute top-full right-0 mt-1 rounded-lg shadow-lg py-1 z-50 min-w-[160px]"
             style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}
             onClick={(e) => e.stopPropagation()}
