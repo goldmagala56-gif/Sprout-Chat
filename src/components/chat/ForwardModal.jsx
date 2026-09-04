@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Search, Check } from 'lucide-react';
+import { X, Search, Check, AlertCircle } from 'lucide-react';
 import Avatar from '../ui/Avatar.jsx';
 import { COLORS } from '../../utils/constants.js';
 import { forwardMessage } from '../../lib/forwardMessage.js';
@@ -8,6 +8,7 @@ export default function ForwardModal({ message, conversations, userId, onClose }
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(new Set());
   const [sending, setSending] = useState(false);
+  const [failedNames, setFailedNames] = useState(null);
 
   const filtered = conversations.filter(c => c.name?.toLowerCase().includes(query.toLowerCase()));
 
@@ -22,9 +23,19 @@ export default function ForwardModal({ message, conversations, userId, onClose }
   const handleSend = async () => {
     if (selected.size === 0 || sending) return;
     setSending(true);
-    await forwardMessage(message, Array.from(selected), userId);
+    setFailedNames(null);
+    const targetIds = Array.from(selected);
+    const { failed } = await forwardMessage(message, targetIds, userId);
     setSending(false);
-    onClose();
+
+    if (failed.length > 0) {
+      const names = conversations.filter(c => failed.includes(c.id)).map(c => c.name);
+      setFailedNames(names);
+      // keep the modal open so the person can see which ones failed
+      setSelected(new Set(failed));
+    } else {
+      onClose();
+    }
   };
 
   return (
@@ -44,6 +55,15 @@ export default function ForwardModal({ message, conversations, userId, onClose }
             <X size={18} color={COLORS.textMuted} />
           </button>
         </div>
+
+        {failedNames && failedNames.length > 0 && (
+          <div className="flex items-start gap-2 px-4 py-2.5 flex-shrink-0" style={{ backgroundColor: '#FEF2F2' }}>
+            <AlertCircle size={14} color={COLORS.danger} className="flex-shrink-0 mt-0.5" />
+            <span className="text-xs" style={{ color: COLORS.danger }}>
+              Couldn't send to: {failedNames.join(', ')}. You may not have permission to message there.
+            </span>
+          </div>
+        )}
 
         <div className="px-3 py-2 flex-shrink-0">
           <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ backgroundColor: COLORS.bgSecondary }}>

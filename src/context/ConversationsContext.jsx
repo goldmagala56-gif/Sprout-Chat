@@ -73,9 +73,10 @@ export function ConversationsProvider({ children }) {
         })),
         participantIds: participants.map(p => p.user_id),
         otherUser: other,
-        isMuted: row.is_muted,
-        isArchived: row.is_archived,
-        isPinned: row.is_pinned,
+        isMuted: !!row.is_muted,
+        isArchived: !!row.is_archived,
+        isPinned: !!row.is_pinned,
+        pinnedAt: row.pinned_at,
       };
     });
 
@@ -186,10 +187,44 @@ export function ConversationsProvider({ children }) {
     return true;
   }, [userId, fetchConversations]);
 
+  // Mute/Archive/Pin all update the caller's own conversation_participants
+  // row — allowed under the existing "Users can update own participant row"
+  // policy, so no new RLS is needed.
+  const toggleMute = useCallback(async (convId) => {
+    if (!userId) return false;
+    const conv = conversations.find(c => c.id === convId);
+    const next = !conv?.isMuted;
+    setConversations(prev => prev.map(c => c.id === convId ? { ...c, isMuted: next } : c));
+    const { error } = await supabase.from('conversation_participants').update({ is_muted: next }).eq('conversation_id', convId).eq('user_id', userId);
+    if (error) { console.error('Toggle mute error:', error); await fetchConversations(); return false; }
+    return true;
+  }, [userId, conversations, fetchConversations]);
+
+  const toggleArchive = useCallback(async (convId) => {
+    if (!userId) return false;
+    const conv = conversations.find(c => c.id === convId);
+    const next = !conv?.isArchived;
+    setConversations(prev => prev.map(c => c.id === convId ? { ...c, isArchived: next } : c));
+    const { error } = await supabase.from('conversation_participants').update({ is_archived: next }).eq('conversation_id', convId).eq('user_id', userId);
+    if (error) { console.error('Toggle archive error:', error); await fetchConversations(); return false; }
+    return true;
+  }, [userId, conversations, fetchConversations]);
+
+  const togglePin = useCallback(async (convId) => {
+    if (!userId) return false;
+    const conv = conversations.find(c => c.id === convId);
+    const next = !conv?.isPinned;
+    const pinned_at = next ? new Date().toISOString() : null;
+    setConversations(prev => prev.map(c => c.id === convId ? { ...c, isPinned: next, pinnedAt: pinned_at } : c));
+    const { error } = await supabase.from('conversation_participants').update({ is_pinned: next, pinned_at }).eq('conversation_id', convId).eq('user_id', userId);
+    if (error) { console.error('Toggle pin error:', error); await fetchConversations(); return false; }
+    return true;
+  }, [userId, conversations, fetchConversations]);
+
   const value = {
     conversations, loading, fetchConversations, createDirect, createGroup, deleteConversation,
     updateConversation, leaveGroup, joinViaInvite, regenerateInviteCode, setParticipantAdmin, removeMember,
-    setDisappearingMessages,
+    setDisappearingMessages, toggleMute, toggleArchive, togglePin,
   };
   return <ConversationsContext.Provider value={value}>{children}</ConversationsContext.Provider>;
 }

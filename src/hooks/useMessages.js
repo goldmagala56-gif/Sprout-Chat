@@ -106,8 +106,6 @@ export function useMessages(conversationId, userId) {
     setHasMore((data || []).length === PAGE_SIZE);
     setLoading(false);
 
-    // Respect the "Read Receipts" privacy toggle: skip marking as read
-    // (and therefore never send a receipt back to the sender) when disabled.
     const receiptsEnabled = profileRef.current?.settings?.readReceipts !== false;
     if (userId && conversationId && receiptsEnabled) {
       await supabase.rpc('mark_messages_as_read', { conv_id: conversationId, reader_id: userId });
@@ -120,7 +118,9 @@ export function useMessages(conversationId, userId) {
     fetchMessages();
   }, [conversationId, fetchMessages]);
 
-  // Realtime: new + edited/deleted messages, reactions
+  // Realtime: new + edited/deleted messages, reactions, and this user's own
+  // "delete for me" actions taken on OTHER signed-in devices (so hiding a
+  // message on your phone also hides it live on your laptop).
   useEffect(() => {
     if (!conversationId) return;
     if (channelRef.current) supabase.removeChannel(channelRef.current);
@@ -132,7 +132,7 @@ export function useMessages(conversationId, userId) {
         filter: `conversation_id=eq.${conversationId}`,
       }, (payload) => {
         const msg = payload.new;
-        if (msg.sender_id === userId) return; // own sends handled optimistically in sendMessage
+        if (msg.sender_id === userId) return;
         setMessages(prev => {
           if (prev.some(m => m.id === msg.id)) return prev;
           const replyMsg = msg.reply_to ? prev.find(m => m.id === msg.reply_to) : null;
@@ -193,12 +193,18 @@ export function useMessages(conversationId, userId) {
           return { ...m, reactions, myReaction };
         }));
       })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'message_hidden_for',
+        filter: `user_id=eq.${userId}`,
+      }, (payload) => {
+        const hiddenMessageId = payload.new.message_id;
+        setMessages(prev => prev.filter(m => m.id !== hiddenMessageId));
+      })
       .subscribe();
 
     return () => { if (channelRef.current) supabase.removeChannel(channelRef.current); };
   }, [conversationId, userId, fetchMessages]);
 
-  // Typing presence — separate lightweight channel per conversation
   useEffect(() => {
     if (!conversationId || !userId) return;
     const channel = supabase.channel(`typing-${conversationId}`, { config: { presence: { key: userId } } });
