@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Volume2, Moon, Eye, Clock, Type, Shield, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Bell, Volume2, Moon, Eye, Clock, Type, Shield, Smartphone, HelpCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { COLORS } from '../utils/constants.js';
 import BottomNav from '../components/layout/BottomNav.jsx';
@@ -33,13 +33,11 @@ export default function SettingsPage() {
 
   return (
     <div className="h-full flex flex-col" style={{ backgroundColor: COLORS.bg }}>
-      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ backgroundColor: COLORS.bgSecondary }}>
         <button onClick={() => navigate('/')} className="md:hidden p-1 -ml-1"><ArrowLeft size={22} color={COLORS.text} /></button>
         <h1 className="text-lg font-bold" style={{ color: COLORS.text }}>Settings</h1>
       </div>
 
-      {/* Settings Content */}
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="px-4 py-2">
           <div className="text-xs font-semibold uppercase tracking-wide py-2" style={{ color: COLORS.textMuted }}>Preferences</div>
@@ -65,6 +63,10 @@ export default function SettingsPage() {
             value={!s.lastSeenPrivacy}
             onChange={() => updateSetting('lastSeenPrivacy', !s.lastSeenPrivacy)}
           />
+          <button onClick={() => navigate('/sessions')} className="w-full flex items-center gap-3 py-3.5" style={{ borderBottom: `1px solid ${COLORS.divider}` }}>
+            <Smartphone size={20} color={COLORS.primary} />
+            <div className="text-left"><div className="text-[15px]" style={{ color: COLORS.text }}>Linked Devices</div><div className="text-xs" style={{ color: COLORS.textMuted }}>Manage where you're signed in</div></div>
+          </button>
         </div>
 
         <div className="px-4 py-2">
@@ -81,7 +83,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Bottom Nav */}
       <BottomNav />
     </div>
   );

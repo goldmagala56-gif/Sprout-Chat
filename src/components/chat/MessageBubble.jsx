@@ -13,7 +13,20 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId, onReply, onEdit, onDelete, onReact, onToggleStar, onForward }) {
+function renderTextWithMentions(text, memberNames) {
+  if (!text || !memberNames?.length) return text;
+  const escaped = memberNames.filter(Boolean).map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  if (escaped.length === 0) return text;
+  const regex = new RegExp(`(@(?:${escaped.join('|')}))`, 'g');
+  const parts = text.split(regex);
+  return parts.map((part, i) =>
+    part.startsWith('@') && memberNames.includes(part.slice(1))
+      ? <span key={i} className="font-semibold" style={{ color: COLORS.primary }}>{part}</span>
+      : part
+  );
+}
+
+export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId, groupMemberNames = [], onReply, onEdit, onDelete, onReact, onToggleStar, onForward }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
   const [reactMenuOpen, setReactMenuOpen] = useState(false);
@@ -115,24 +128,18 @@ export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId,
                   <span className="text-xs flex-shrink-0" style={{ color: COLORS.textMuted }}>{msg.duration || '0:00'}</span>
                 </div>
               ) : isFile ? (
-                <a
-                  href={msg.file_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download={msg.file_name}
-                  className="flex items-center gap-2 min-w-[180px] max-w-[240px] hover:opacity-80 transition-opacity"
-                >
+                <a href={msg.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 min-w-[180px] hover:opacity-80">
                   <div className="flex items-center justify-center rounded-lg flex-shrink-0" style={{ width: 36, height: 36, backgroundColor: COLORS.primary }}>
                     <FileText size={18} color="white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium truncate" style={{ color: COLORS.text }}>{msg.file_name || 'Document'}</div>
+                    <div className="text-xs font-medium truncate">{msg.file_name || 'File'}</div>
                     <div className="text-[10px]" style={{ color: COLORS.textMuted }}>{formatFileSize(msg.file_size)}</div>
                   </div>
                   <Download size={14} color={COLORS.textMuted} className="flex-shrink-0" />
                 </a>
               ) : (
-                <div className="break-words whitespace-pre-wrap">{msg.text}</div>
+                <div className="break-words whitespace-pre-wrap">{renderTextWithMentions(msg.text, groupMemberNames)}</div>
               )}
 
               {!isDeleted && !editing && (
@@ -182,11 +189,7 @@ export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId,
                 {reactMenuOpen && (
                   <div className="absolute top-full mt-1 rounded-full shadow-lg px-1.5 py-1 z-50 flex items-center gap-1" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}`, [isMe ? 'right' : 'left']: 0 }}>
                     {QUICK_EMOJIS.map(emoji => (
-                      <button
-                        key={emoji}
-                        onClick={() => { onReact?.(msg.id, emoji); closeMenus(); }}
-                        className="text-base hover:scale-125 transition-transform px-0.5"
-                      >
+                      <button key={emoji} onClick={() => { onReact?.(msg.id, emoji); closeMenus(); }} className="text-base hover:scale-125 transition-transform px-0.5">
                         {emoji}
                       </button>
                     ))}
@@ -209,10 +212,7 @@ export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId,
                         <Pencil size={14} color={COLORS.text} /> Edit
                       </button>
                     )}
-                    <button
-                      onClick={() => { setDeleteMenuOpen(true); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
-                    >
+                    <button onClick={() => { setDeleteMenuOpen(true); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
                       <Trash2 size={14} color={COLORS.danger} /> Delete
                     </button>
                   </div>
@@ -223,10 +223,7 @@ export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId,
                       <span className="text-[10px] font-semibold uppercase" style={{ color: COLORS.textMuted }}>Delete message</span>
                       <button onClick={closeMenus}><X size={12} color={COLORS.textMuted} /></button>
                     </div>
-                    <button
-                      onClick={() => { onDelete?.(msg.id, 'me'); closeMenus(); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
-                    >
+                    <button onClick={() => { onDelete?.(msg.id, 'me'); closeMenus(); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
                       Delete for me
                     </button>
                     {isMe && (

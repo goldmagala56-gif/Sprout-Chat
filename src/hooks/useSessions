@@ -1,0 +1,34 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase.js';
+import { getDeviceId } from '../utils/deviceId.js';
+
+export function useSessions(userId) {
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchSessions = useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('user_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('last_active', { ascending: false });
+    if (error) console.error('Fetch sessions error:', error);
+    setSessions(data || []);
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => { fetchSessions(); }, [fetchSessions]);
+
+  const removeSession = useCallback(async (sessionId) => {
+    const { error } = await supabase.from('user_sessions').delete().eq('id', sessionId);
+    if (error) { console.error('Remove session error:', error); return false; }
+    setSessions(prev => prev.filter(s => s.id !== sessionId));
+    return true;
+  }, []);
+
+  const currentDeviceId = getDeviceId();
+
+  return { sessions, loading, removeSession, currentDeviceId, refetch: fetchSessions };
+}

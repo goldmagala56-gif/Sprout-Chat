@@ -21,7 +21,7 @@ export function ConversationsProvider({ children }) {
         unread_count,
         is_muted, is_archived, is_pinned, pinned_at,
         conversations!inner(
-          id, name, avatar_url, description, admin_only, invite_code, is_group, created_at, updated_at,
+          id, name, avatar_url, description, admin_only, invite_code, disappearing_seconds, is_group, created_at, updated_at,
           conversation_participants(
             user_id, is_admin,
             profiles:user_id(id, name, initials, avatar_url, online, last_seen)
@@ -56,6 +56,7 @@ export function ConversationsProvider({ children }) {
         description: conv.description,
         adminOnly: !!conv.admin_only,
         inviteCode: conv.invite_code,
+        disappearingSeconds: conv.disappearing_seconds,
         isAdmin: !!myParticipant?.is_admin,
         last: lastIsMine ? `You: ${lastText}` : lastText,
         time: lastMsg?.created_at || conv.updated_at,
@@ -102,8 +103,6 @@ export function ConversationsProvider({ children }) {
           return { ...c, online: p.online, otherUser: { ...c.otherUser, online: p.online, last_seen: p.last_seen } };
         }));
       })
-      // Group name/description/admin_only/avatar edits — infrequent, so a
-      // global refetch (rather than a per-row filter) is an acceptable cost.
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'conversations',
       }, () => fetchConversations())
@@ -179,9 +178,18 @@ export function ConversationsProvider({ children }) {
     return true;
   }, [fetchConversations]);
 
+  const setDisappearingMessages = useCallback(async (convId, seconds) => {
+    if (!userId) return false;
+    const { error } = await supabase.rpc('set_disappearing_messages', { conv_id: convId, seconds, requester: userId });
+    if (error) { console.error('Set disappearing messages error:', error); return false; }
+    await fetchConversations();
+    return true;
+  }, [userId, fetchConversations]);
+
   const value = {
     conversations, loading, fetchConversations, createDirect, createGroup, deleteConversation,
     updateConversation, leaveGroup, joinViaInvite, regenerateInviteCode, setParticipantAdmin, removeMember,
+    setDisappearingMessages,
   };
   return <ConversationsContext.Provider value={value}>{children}</ConversationsContext.Provider>;
 }

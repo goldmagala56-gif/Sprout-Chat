@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, getCurrentUser } from '../lib/supabase.js';
+import { getDeviceId, getDeviceLabel } from '../utils/deviceId.js';
 
 const AuthContext = createContext(null);
 const HEARTBEAT_MS = 45000;
@@ -10,6 +11,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const heartbeatRef = useRef(null);
   const profileRef = useRef(null);
+  const sessionExistsRef = useRef(false);
 
   useEffect(() => { profileRef.current = profile; }, [profile]);
 
@@ -19,8 +21,6 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  // Respects the "Last Seen" privacy setting: when hidden, we always report
-  // offline/no-last-seen to other users regardless of actual activity.
   const setOnlineStatus = useCallback(async (uid, online) => {
     if (!uid) return;
     const hideLastSeen = !!profileRef.current?.settings?.lastSeenPrivacy;
@@ -29,6 +29,36 @@ export function AuthProvider({ children }) {
     } else {
       await supabase.from('profiles').update({ online, last_seen: new Date().toISOString() }).eq('id', uid);
     }
+  }, []);
+
+  // Registers/refreshes this device's session row, and checks whether it
+  // was removed remotely (via the Linked Devices screen) — if so, signs
+  // this device out. This is client-side self-enforcement, not real
+  // server-side token revocation, since that requires privileges the
+  // browser client doesn't have.
+  const checkAndRefreshSession = useCallback(async (uid) => {
+    if (!uid) return;
+    const deviceId = getDeviceId();
+
+    if (sessionExistsRef.current) {
+      const { data, error } = await supabase
+        .from('user_sessions')
+        .select('id')
+        .eq('user_id', uid)
+        .eq('device_id', deviceId)
+        .maybeSingle();
+      if (!error && !data) {
+        // Our session row was deleted from another device — sign out here too.
+        await supabase.auth.signOut();
+        return;
+      }
+    }
+
+    const { error: upsertError } = await supabase.from('user_sessions').upsert(
+      { user_id: uid, device_id: deviceId, device_label: getDeviceLabel(), last_active: new Date().toISOString() },
+      { onConflict: 'user_id,device_id' }
+    );
+    if (!upsertError) sessionExistsRef.current = true;
   }, []);
 
   useEffect(() => {
@@ -52,8 +82,12 @@ export function AuthProvider({ children }) {
     if (!uid) return;
 
     setOnlineStatus(uid, true);
+    checkAndRefreshSession(uid);
     heartbeatRef.current = setInterval(() => {
-      if (document.visibilityState === 'visible') setOnlineStatus(uid, true);
+      if (document.visibilityState === 'visible') {
+        setOnlineStatus(uid, true);
+        checkAndRefreshSession(uid);
+      }
     }, HEARTBEAT_MS);
 
     const handleVisibility = () => setOnlineStatus(uid, document.visibilityState === 'visible');
@@ -68,7 +102,7 @@ export function AuthProvider({ children }) {
       window.removeEventListener('beforeunload', handleUnload);
       setOnlineStatus(uid, false);
     };
-  }, [user?.id, setOnlineStatus]);
+  }, [user?.id, setOnlineStatus, checkAndRefreshSession]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', !!profile?.settings?.darkMode);
@@ -89,7 +123,11 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    if (user?.id) await setOnlineStatus(user.id, false);
+    if (user?.id) {
+      await setOnlineStatus(user.id, false);
+      await supabase.from('user_sessions').delete().eq('user_id', user.id).eq('device_id', getDeviceId());
+    }
+    sessionExistsRef.current = false;
     await supabase.auth.signOut();
   }, [user?.id, setOnlineStatus]);
 
