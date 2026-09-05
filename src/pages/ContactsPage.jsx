@@ -1,19 +1,21 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, UserPlus, MessageCircle, Trash2, Send, Ban, ShieldCheck, MoreVertical, Contact } from 'lucide-react';
+import { ArrowLeft, UserPlus, MessageCircle, Trash2, Send, Ban, ShieldCheck, MoreVertical, Contact, Flag } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth.js';
 import { useContacts } from '../hooks/useContacts.js';
 import { useConversations } from '../hooks/useConversations.js';
 import { useBlockedUsers } from '../hooks/useBlockedUsers.js';
+import { useReportUser } from '../hooks/useReportUser.js';
 import { useLongPress } from '../hooks/useLongPress.js';
 import { useClickOutside } from '../hooks/useClickOutside.js';
 import { COLORS } from '../utils/constants.js';
 import Avatar from '../components/ui/Avatar.jsx';
+import ReportUserModal from '../components/ui/ReportUserModal.jsx';
 import BottomNav from '../components/layout/BottomNav.jsx';
 
 const supportsContactPicker = typeof navigator !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window;
 
-function ContactRow({ contact, isBlocked, onStartChat, onToggleBlock, onRemove, menuOpen, onOpenMenu, onCloseMenu }) {
+function ContactRow({ contact, isBlocked, isReported, onStartChat, onToggleBlock, onRemove, onReport, menuOpen, onOpenMenu, onCloseMenu }) {
   const menuRef = useRef(null);
   useClickOutside(menuRef, menuOpen, onCloseMenu);
 
@@ -56,10 +58,17 @@ function ContactRow({ contact, isBlocked, onStartChat, onToggleBlock, onRemove, 
                 {isBlocked ? <ShieldCheck size={14} color={COLORS.primary} /> : <Ban size={14} color={COLORS.text} />}
                 {isBlocked ? 'Unblock' : 'Block'}
               </button>
+              <button
+                onClick={() => { onReport(contact); onCloseMenu(); }}
+                disabled={isReported}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left disabled:opacity-50"
+              >
+                <Flag size={14} color={isReported ? COLORS.textMuted : COLORS.danger} /> {isReported ? 'Reported' : 'Report'}
+              </button>
             </>
           ) : (
             
-            <a href={`sms:${contact.phone}?body=${encodeURIComponent(`Hey ${contact.name.split(' ')[0]}, join me on Sprout!`)}`}
+             <a href={`sms:${contact.phone}?body=${encodeURIComponent(`Hey ${contact.name.split(' ')[0]}, join me on Sprout!`)}`}
               onClick={onCloseMenu}
               className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
             >
@@ -85,12 +94,14 @@ export default function ContactsPage() {
   const { contacts, addContact, removeContact } = useContacts(user?.id);
   const { createDirect } = useConversations();
   const { blockedIds, blockUser, unblockUser } = useBlockedUsers(user?.id);
+  const { reportedIds, reportUser } = useReportUser(user?.id);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [openMenuId, setOpenMenuId] = useState(null);
   const [picking, setPicking] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
 
   const handleAdd = async () => {
     setFormError('');
@@ -103,8 +114,6 @@ export default function ContactsPage() {
     setPhone('');
   };
 
-  // Contact Picker API — Chrome on Android only. One-time manual selection,
-  // no background sync; just pre-fills the existing manual-entry fields.
   const handlePickFromContacts = async () => {
     setFormError('');
     setPicking(true);
@@ -116,7 +125,6 @@ export default function ContactsPage() {
         setPhone(picked.tel?.[0] || '');
       }
     } catch (err) {
-      // AbortError fires on user cancel — not a real error, ignore it.
       if (err?.name !== 'AbortError') {
         console.error('Contact picker error:', err);
         setFormError("Couldn't read from your contacts. Try entering them manually.");
@@ -139,6 +147,12 @@ export default function ContactsPage() {
     } else if (confirm(`Block ${contact.name}? They won't be able to message you.`)) {
       blockUser(contact.id);
     }
+  };
+
+  const handleReportSubmit = async (reason, details) => {
+    if (!reportTarget) return;
+    const ok = await reportUser(reportTarget.id, reason, details);
+    if (!ok) alert("Couldn't submit the report. Try again.");
   };
 
   return (
@@ -181,15 +195,25 @@ export default function ContactsPage() {
             key={c.rowId}
             contact={c}
             isBlocked={c.registered && blockedIds.has(c.id)}
+            isReported={c.registered && reportedIds.has(c.id)}
             onStartChat={startChat}
             onToggleBlock={handleToggleBlock}
             onRemove={removeContact}
+            onReport={setReportTarget}
             menuOpen={openMenuId === c.rowId}
             onOpenMenu={() => setOpenMenuId(c.rowId)}
             onCloseMenu={() => setOpenMenuId(null)}
           />
         ))}
       </div>
+
+      {reportTarget && (
+        <ReportUserModal
+          contactName={reportTarget.name}
+          onSubmit={handleReportSubmit}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
 
       <BottomNav />
     </div>

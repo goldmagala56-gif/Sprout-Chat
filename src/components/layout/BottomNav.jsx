@@ -1,12 +1,13 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MessageSquare, Users, CircleDot, Settings } from 'lucide-react';
+import { MessageSquare, Users, CircleDot, Settings, User } from 'lucide-react';
 import { COLORS } from '../../utils/constants.js';
 
 const tabs = [
   { icon: MessageSquare, label: 'Chats', path: '/' },
   { icon: CircleDot, label: 'Status', path: '/status' },
   { icon: Users, label: 'Contacts', path: '/contacts' },
+  { icon: User, label: 'Profile', path: '/profile' },
   { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
@@ -15,16 +16,15 @@ export default function BottomNav() {
   const navigate = useNavigate();
 
   return (
-    // BottomNav.jsx
-      <div 
-        className="flex items-center justify-around px-2 flex-shrink-0"
-        style={{ 
-          height: 56, 
-          paddingBottom: 'env(safe-area-inset-bottom)',
-          backgroundColor: COLORS.bg,
-          borderTop: `1px solid ${COLORS.divider}`,
-        }}
-      >
+    <div 
+      className="flex items-center justify-around px-2 flex-shrink-0"
+      style={{ 
+        height: 56, 
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        backgroundColor: COLORS.bg,
+        borderTop: `1px solid ${COLORS.divider}`,
+      }}
+    >
       {tabs.map(tab => {
         const active = location.pathname === tab.path || (tab.path === '/' && location.pathname.startsWith('/chat/'));
         return (
