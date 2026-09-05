@@ -1,9 +1,9 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth.js';
-import { useConversations } from '../hooks/useConversations.js';
-import ChatWindow from '../components/chat/ChatWindow.jsx';
-import { COLORS } from '../utils/constants.js';
+import { useAuth } from '../src/hooks/useAuth.js';
+import { useConversations } from '../src/hooks/useConversations.js';
+import ChatWindow from '../src/components/chat/ChatWindow.jsx';
+import { COLORS } from '../src/utils/constants.js';
 
 export default function ChatPage() {
   const { id } = useParams();
