@@ -2,17 +2,17 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth.js';
 import AppShell from './components/layout/AppShell.jsx';
-import LoginPage from '../pages/LoginPage.js';
-import RegisterPage from '../pages/RegisterPage.js';
-import ResetPasswordPage from '../pages/ResetPasswordPage.js';
-import ChatsPage from '../pages/ChatsPage.js';
-import ChatPage from '../pages/ChatPage.js';
+import LoginPage from '../pages/LoginPage.jsx';
+import RegisterPage from '../pages/RegisterPage.jsx';
+import ResetPasswordPage from '../pages/ResetPasswordPage.jsx';
+import ChatsPage from '../pages/ChatsPage.jsx';
+import ChatPage from '../pages/ChatPage.jsx';
 import ContactsPage from '../pages/ContactsPage.jsx';
-import NewChatPage from '../pages/NewChatPage.js';
+import NewChatPage from '../pages/NewChatPage.jsx';
 import ProfilePage from '../pages/ProfilePage.jsx';
 import SettingsPage from '../pages/SettingsPage.jsx';
 import StatusPage from '../pages/StatusPage.jsx';
-import JoinGroupPage from './components/chat/JoinGroupPage.jsx';
+import JoinGroupPage from '../pages/JoinGroupPage.jsx';
 import SessionsPage from '../pages/SessionsPage.jsx';
 
 function ProtectedRoute({ children }) {
@@ -45,3 +45,4 @@ export default function App() {
     </Routes>
   );
 }
+
