@@ -50,7 +50,6 @@ export function useSessions(userId) {
     setLoading(false);
   }, [userId]);
 
-  // Register/refresh this device's own row so it shows up (and stays "active") in the list.
   const touchSession = useCallback(async () => {
     if (!userId) return;
     const { error } = await supabase
@@ -73,8 +72,6 @@ export function useSessions(userId) {
     return () => clearInterval(heartbeatRef.current);
   }, [userId, touchSession, fetchSessions]);
 
-  // Live updates for the list, and — the important part — if THIS device's own
-  // row gets deleted (someone removed it from another device), force a real sign-out here.
   useEffect(() => {
     if (!userId) return;
     const channel = supabase
@@ -84,7 +81,7 @@ export function useSessions(userId) {
         filter: `user_id=eq.${userId}`,
       }, (payload) => {
         if (payload.eventType === 'DELETE' && payload.old?.device_id === currentDeviceId) {
-          supabase.auth.signOut(); // ProtectedRoute already redirects to /login when user becomes null
+          supabase.auth.signOut();
           return;
         }
         fetchSessions();
