@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useConversations } from '../src/hooks/useConversations.js';
-import { COLORS } from '../src/utils/constants.js';
+import { useConversations } from '../hooks/useConversations.js';
+import { COLORS } from '../utils/constants.js';
 
 export default function JoinGroupPage() {
   const { code } = useParams();
@@ -37,3 +37,4 @@ export default function JoinGroupPage() {
     </div>
   );
 }
+

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Leaf, Mail, Lock, User, Phone, Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '../src/hooks/useAuth.js';
-import { COLORS } from '../src/utils/constants.js';
+import { useAuth } from '../hooks/useAuth.js';
+import { COLORS } from '../utils/constants.js';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -55,7 +55,7 @@ export default function RegisterPage() {
               <Phone size={16} color={COLORS.textMuted} />
               <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+256 7XX XXX XXX" autoComplete="tel" className="w-full bg-transparent outline-none text-sm" style={{ color: COLORS.text }} required />
             </div>
-            <p className="text-[11px] mt-1" style={{ color: COLORS.textMuted }}>Include your country code — this is how contacts find you.</p>
+            <p className="text-[11px] mt-1" style={{ color: COLORS.textMuted }}>Include your country code â€” this is how contacts find you.</p>
           </div>
           <div>
             <label className="text-xs font-semibold mb-1.5 block uppercase tracking-wide" style={{ color: COLORS.text }}>Email</label>
@@ -86,3 +86,4 @@ export default function RegisterPage() {
     </div>
   );
 }
+

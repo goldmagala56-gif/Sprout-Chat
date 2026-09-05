@@ -1,6 +1,6 @@
-import React from 'react';
+﻿import React from 'react';
 import { useOutletContext } from 'react-router-dom';
-import ChatWindow from '../src/components/chat/ChatWindow.jsx';
+import ChatWindow from '../components/chat/ChatWindow.jsx';
 
 export default function ChatsPage() {
   const { userId, conversations } = useOutletContext();
@@ -16,3 +16,4 @@ export default function ChatsPage() {
     </div>
   );
 }
+

@@ -1,17 +1,17 @@
-import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, UserPlus, MessageCircle, Trash2, Send, Ban, ShieldCheck, MoreVertical, Contact, Flag } from 'lucide-react';
-import { useAuth } from '../src/hooks/useAuth.js';
-import { useContacts } from '../src/hooks/useContacts.js';
-import { useConversations } from '../src/hooks/useConversations.js';
-import { useBlockedUsers } from '../src/hooks/useBlockedUsers.js';
-import { useReportUser } from '../src/hooks/useReportUser.js';
-import { useLongPress } from '../src/hooks/useLongPress.js';
-import { useClickOutside } from '../src/hooks/useClickOutside.js';
-import { COLORS } from '../src/utils/constants.js';
-import Avatar from '../src/components/ui/Avatar.jsx';
-import ReportUserModal from '../src/components/ui/ReportUserModal.jsx';
-import BottomNav from '../src/components/layout/BottomNav.jsx';
+import { useAuth } from '../hooks/useAuth.js';
+import { useContacts } from '../hooks/useContacts.js';
+import { useConversations } from '../hooks/useConversations.js';
+import { useBlockedUsers } from '../hooks/useBlockedUsers.js';
+import { useReportUser } from '../hooks/useReportUser.js';
+import { useLongPress } from '../hooks/useLongPress.js';
+import { useClickOutside } from '../hooks/useClickOutside.js';
+import { COLORS } from '../utils/constants.js';
+import Avatar from '../components/ui/Avatar.jsx';
+import ReportUserModal from '../components/ui/ReportUserModal.jsx';
+import BottomNav from '../components/layout/BottomNav.jsx';
 
 const supportsContactPicker = typeof navigator !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window;
 
@@ -219,3 +219,4 @@ export default function ContactsPage() {
     </div>
   );
 }
+

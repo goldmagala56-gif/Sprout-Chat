@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, MessageCircle, Check, UserX } from 'lucide-react';
-import { useAuth } from '../src/hooks/useAuth.js';
-import { useContacts } from '../src/hooks/useContacts.js';
-import { useConversations } from '../src/hooks/useConversations.js';
-import { COLORS } from '../src/utils/constants.js';
-import Avatar from '../src/components/ui/Avatar.jsx';
+import { useAuth } from '../hooks/useAuth.js';
+import { useContacts } from '../hooks/useContacts.js';
+import { useConversations } from '../hooks/useConversations.js';
+import { COLORS } from '../utils/constants.js';
+import Avatar from '../components/ui/Avatar.jsx';
 
 export default function NewChatPage() {
   const navigate = useNavigate();
@@ -104,3 +104,4 @@ export default function NewChatPage() {
     </div>
   );
 }
+

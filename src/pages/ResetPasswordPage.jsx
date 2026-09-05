@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Leaf, Lock, Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '../src/hooks/useAuth.js';
-import { COLORS } from '../src/utils/constants.js';
+import { useAuth } from '../hooks/useAuth.js';
+import { COLORS } from '../utils/constants.js';
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -25,7 +25,7 @@ export default function ResetPasswordPage() {
       setDone(true);
       setTimeout(() => navigate('/'), 1500);
     } catch (err) {
-      setError(err.message || 'Could not reset password. The link may have expired — request a new one from the login page.');
+      setError(err.message || 'Could not reset password. The link may have expired â€” request a new one from the login page.');
     } finally {
       setLoading(false);
     }
@@ -74,3 +74,4 @@ export default function ResetPasswordPage() {
     </div>
   );
 }
+

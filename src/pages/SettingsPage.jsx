@@ -1,9 +1,10 @@
-import React from 'react';
+﻿import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Bell, Volume2, Moon, Eye, Clock, Type, Shield, Smartphone, HelpCircle, LogOut } from 'lucide-react';
-import { useAuth } from '../src/hooks/useAuth.js';
-import { COLORS } from '../src/utils/constants.js';
-import BottomNav from '../src/components/layout/BottomNav.jsx';
+import { useAuth } from '../hooks/useAuth.js';
+import { COLORS } from '../utils/constants.js';
+import BottomNav from '../components/layout/BottomNav.jsx';
+import { usePushNotifications } from '../hooks/usePushNotifications.js';
 
 function SettingRow({ icon: Icon, label, sublabel, value, onChange }) {
   return (
@@ -36,6 +37,19 @@ export default function SettingsPage() {
     await signOut();
     navigate('/login');
   };
+  const { user } = useAuth(); // if not already destructured â€” needed to pass userId
+  const { subscribed, loading: pushLoading, subscribe, unsubscribe } = usePushNotifications(user?.id);
+
+  const handleNotificationsToggle = async () => {
+    if (subscribed) {
+      await unsubscribe();
+      updateSetting('notifications', false);
+    } else {
+      const ok = await subscribe();
+      if (ok) updateSetting('notifications', true);
+      else alert("Couldn't enable notifications â€” check your browser's permission settings.");
+    }
+  };
 
   return (
     <div className="h-full flex flex-col" style={{ backgroundColor: COLORS.bg }}>
@@ -48,6 +62,7 @@ export default function SettingsPage() {
         <div className="px-4 py-2">
           <div className="text-xs font-semibold uppercase tracking-wide py-2" style={{ color: COLORS.textMuted }}>Preferences</div>
           <SettingRow icon={Bell} label="Notifications" value={s.notifications} onChange={() => updateSetting('notifications', !s.notifications)} />
+          <SettingRow icon={Bell} label="Notifications" value={subscribed} onChange={handleNotificationsToggle} />
           <SettingRow icon={Volume2} label="Sounds" value={s.sound} onChange={() => updateSetting('sound', !s.sound)} />
           <SettingRow icon={Moon} label="Dark Mode" value={s.darkMode} onChange={() => updateSetting('darkMode', !s.darkMode)} />
           <SettingRow icon={Type} label="Typing Indicators" value={s.typingIndicators} onChange={() => updateSetting('typingIndicators', !s.typingIndicators)} />
@@ -85,7 +100,7 @@ export default function SettingsPage() {
             <HelpCircle size={20} color={COLORS.primary} />
             <div><div className="text-[15px]" style={{ color: COLORS.text }}>Help Center</div><div className="text-xs" style={{ color: COLORS.textMuted }}>Get support and FAQs</div></div>
           </div>
-          <div className="py-4 text-center"><span className="text-xs" style={{ color: COLORS.textMuted }}>Sprout v2.0.0 — Built with Supabase</span></div>
+          <div className="py-4 text-center"><span className="text-xs" style={{ color: COLORS.textMuted }}>Sprout v2.0.0 â€” Built with Supabase</span></div>
         </div>
 
         <div className="px-4 py-2">
@@ -104,3 +119,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+
