@@ -1,9 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Smartphone, LogOut } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth.js';
-import { useSessions } from '../hooks/useSessions.js';
-import { COLORS } from '../utils/constants.js';
+import { useAuth } from '../src/hooks/useAuth.js';
+import { useSessions } from '../src/hooks/useSessions.js';
+import { COLORS } from '../src/utils/constants.js';
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();

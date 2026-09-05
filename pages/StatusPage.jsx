@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Plus, Camera } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth.js';
-import { useStatuses } from '../hooks/useStatuses.js';
-import { COLORS } from '../utils/constants.js';
-import Avatar from '../components/ui/Avatar.jsx';
-import BottomNav from '../components/layout/BottomNav.jsx';
-import StatusViewer from '../components/status/StatusViewer.jsx';
-import StatusComposer from '../components/status/StatusComposer.jsx';
+import { useAuth } from '../src/hooks/useAuth.js';
+import { useStatuses } from '../src/hooks/useStatuses.js';
+import { COLORS } from '../src/utils/constants.js';
+import Avatar from '../src/components/ui/Avatar.jsx';
+import BottomNav from '../src/components/layout/BottomNav.jsx';
+import StatusViewer from '../src/components/status/StatusViewer.jsx';
+import StatusComposer from '../src/components/status/StatusComposer.jsx';
 
 export default function StatusPage() {
   const { user, profile } = useAuth();

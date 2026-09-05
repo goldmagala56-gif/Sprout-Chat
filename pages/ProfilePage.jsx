@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, Edit2, Check, LogOut } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth.js';
-import { COLORS } from '../utils/constants.js';
-import Avatar from '../components/ui/Avatar.jsx';
-import BottomNav from '../components/layout/BottomNav.jsx';
+import { useAuth } from '../src/hooks/useAuth.js';
+import { COLORS } from '../src/utils/constants.js';
+import Avatar from '../src/components/ui/Avatar.jsx';
+import BottomNav from '../src/components/layout/BottomNav.jsx';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
