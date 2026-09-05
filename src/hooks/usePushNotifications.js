@@ -86,4 +86,3 @@ export function usePushNotifications(userId) {
 
   return { permission, subscribed, loading, subscribe, unsubscribe };
 }
-
