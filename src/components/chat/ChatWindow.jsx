@@ -89,7 +89,7 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
             </div>
           </button>
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0 relative">
+        <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0 relative">
           {!isGroup && (
             <>
               <button onClick={() => handleCall('video')} disabled={!canCall} className="p-2 rounded-full hover:bg-black/5 transition-colors disabled:opacity-40">
@@ -104,34 +104,37 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
             <MoreVertical size={20} color={COLORS.textMuted} />
           </button>
           {headerMenuOpen && (
-            <div className="absolute top-full right-0 mt-1 rounded-lg shadow-lg py-1 z-50 min-w-[210px]" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}>
-              <button onClick={() => { setGalleryOpen(true); setHeaderMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
-                <ImageIcon size={14} color={COLORS.text} /> Media, links and docs
-              </button>
-              {isGroup && (
-                <button onClick={() => { setGroupInfoOpen(true); setHeaderMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
-                  <Info size={14} color={COLORS.text} /> Group info
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setHeaderMenuOpen(false)} />
+              <div className="absolute top-full right-0 mt-1 rounded-lg shadow-lg py-1 z-50 min-w-[210px]" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}>
+                <button onClick={() => { setGalleryOpen(true); setHeaderMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
+                  <ImageIcon size={14} color={COLORS.text} /> Media, links and docs
                 </button>
-              )}
-              {canManageDisappearing && (
-                <button onClick={() => { setDisappearingOpen(true); setHeaderMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
-                  <Timer size={14} color={COLORS.text} /> Disappearing messages {disappearingLabel ? `(${disappearingLabel})` : ''}
+                {isGroup && (
+                  <button onClick={() => { setGroupInfoOpen(true); setHeaderMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
+                    <Info size={14} color={COLORS.text} /> Group info
+                  </button>
+                )}
+                {canManageDisappearing && (
+                  <button onClick={() => { setDisappearingOpen(true); setHeaderMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
+                    <Timer size={14} color={COLORS.text} /> Disappearing messages {disappearingLabel ? `(${disappearingLabel})` : ''}
+                  </button>
+                )}
+                <button
+                  onClick={() => { setHeaderMenuOpen(false); exportChatAsText(conversation.id, conversation.name, userId); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
+                >
+                  <Download size={14} color={COLORS.text} /> Export chat
                 </button>
-              )}
-              <button
-                onClick={() => { setHeaderMenuOpen(false); exportChatAsText(conversation.id, conversation.name, userId); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
-              >
-                <Download size={14} color={COLORS.text} /> Export chat
-              </button>
-              <button
-                onClick={() => { setHeaderMenuOpen(false); if (confirm('Delete this conversation?')) onDelete?.(conversation.id); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
-                style={{ color: COLORS.danger }}
-              >
-                <Trash2 size={14} /> Delete conversation
-              </button>
-            </div>
+                <button
+                  onClick={() => { setHeaderMenuOpen(false); if (confirm('Delete this conversation?')) onDelete?.(conversation.id); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
+                  style={{ color: COLORS.danger }}
+                >
+                  <Trash2 size={14} /> Delete conversation
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>
