@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Plus, Leaf, ArrowLeft, Archive, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Plus, Leaf, ArrowLeft, Archive, ChevronDown, ChevronUp, MoreVertical, User, Settings, LogOut } from 'lucide-react';
 import { COLORS } from '../../utils/constants.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useConversations } from '../../hooks/useConversations.js';
@@ -9,9 +9,6 @@ import Avatar from '../ui/Avatar.jsx';
 import ChatList from './ChatList.jsx';
 import BottomNav from './BottomNav.jsx';
 import CallOverlay from '../call/CallOverlay.jsx';
-import InstallPrompt from './InstallPrompt.jsx';
-
-const PENDING_INVITE_KEY = 'sprout_pending_invite';
 
 export default function AppShell() {
   const navigate = useNavigate();
@@ -21,22 +18,13 @@ export default function AppShell() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showArchived, setShowArchived] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  // If the user arrived via an invite link while signed out, JoinGroupPage
-  // stashed the code here. Now that we're authenticated and inside the
-  // protected app, send them back to finish joining.
-  useEffect(() => {
-    if (!user) return;
-    const pending = localStorage.getItem(PENDING_INVITE_KEY);
-    if (pending) navigate(`/join/${pending}`, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
 
   const searched = conversations.filter(c =>
     c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -56,9 +44,17 @@ export default function AppShell() {
   const showChatList = !isMobile || isListRoute;
   const showChatWindow = !isMobile || !isListRoute;
 
+  const handleLogout = async () => {
+    setMenuOpen(false);
+    if (!confirm('Log out of Sprout?')) return;
+    await signOut();
+    navigate('/login');
+  };
+
   return (
     <CallProvider>
       <div className="h-[100dvh] w-full flex overflow-hidden bg-white font-sans relative">
+        {/* ===== SIDEBAR (Chat List) ===== */}
         <div 
           className={`flex-col flex-shrink-0 border-r transition-transform duration-200
             ${showChatList ? 'flex' : 'hidden'}
@@ -66,8 +62,9 @@ export default function AppShell() {
           `}
           style={{ borderColor: COLORS.divider }}
         >
+          {/* Header */}
           <div 
-            className="flex items-center justify-between px-4 py-3 flex-shrink-0"
+            className="flex items-center justify-between px-4 py-3 flex-shrink-0 relative"
             style={{ backgroundColor: COLORS.bgSecondary }}
           >
             <div className="flex items-center gap-2">
@@ -86,9 +83,37 @@ export default function AppShell() {
               >
                 <Plus size={20} color={COLORS.textMuted} />
               </button>
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="p-2 rounded-full hover:bg-black/5 transition-colors"
+              >
+                <MoreVertical size={20} color={COLORS.textMuted} />
+              </button>
             </div>
+
+            {menuOpen && (
+              <>
+                {/* invisible backdrop — closes the menu on any outside tap/click */}
+                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                <div
+                  className="absolute top-full right-3 mt-1 rounded-lg shadow-lg py-1 z-50 min-w-[180px]"
+                  style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}
+                >
+                  <button onClick={() => { setMenuOpen(false); navigate('/profile'); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left">
+                    <User size={16} color={COLORS.text} /> Profile
+                  </button>
+                  <button onClick={() => { setMenuOpen(false); navigate('/settings'); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left">
+                    <Settings size={16} color={COLORS.text} /> Settings
+                  </button>
+                  <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left" style={{ color: COLORS.danger }}>
+                    <LogOut size={16} /> Log out
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
+          {/* Search */}
           <div className="px-3 py-2 flex-shrink-0">
             <div 
               className="flex items-center gap-2 rounded-lg px-3 py-2"
@@ -105,6 +130,7 @@ export default function AppShell() {
             </div>
           </div>
 
+          {/* Archived toggle row */}
           {archivedList.length > 0 && (
             <button
               onClick={() => setShowArchived(!showArchived)}
@@ -119,6 +145,7 @@ export default function AppShell() {
             </button>
           )}
 
+          {/* Chat List */}
           <div className="flex-1 overflow-y-auto min-h-0">
             <ChatList 
               chats={filtered} 
@@ -130,6 +157,7 @@ export default function AppShell() {
             />
           </div>
 
+          {/* User footer - desktop only (identity display; Log out now lives in the ... menu above) */}
           {!isMobile && (
             <div 
               className="flex items-center gap-3 px-4 py-3 border-t flex-shrink-0"
@@ -149,24 +177,20 @@ export default function AppShell() {
                   {profile?.status || 'Online'}
                 </div>
               </div>
-              <button 
-                onClick={signOut}
-                className="text-xs font-medium px-3 py-1.5 rounded-full hover:bg-red-50 transition-colors"
-                style={{ color: COLORS.danger }}
-              >
-                Log out
-              </button>
             </div>
           )}
 
+          {/* Bottom Nav - mobile only, on list view */}
           {isMobile && <BottomNav />}
         </div>
 
+        {/* ===== CHAT WINDOW AREA ===== */}
         <div 
           className={`flex-1 flex flex-col h-full relative
             ${showChatWindow ? 'flex' : 'hidden md:flex'}
           `}
         >
+          {/* Mobile: show back button when in chat */}
           {isMobile && isChatRoute && (
             <div 
               className="flex items-center gap-3 px-4 py-3 flex-shrink-0 md:hidden"
@@ -188,7 +212,6 @@ export default function AppShell() {
         </div>
 
         <CallOverlay />
-        <InstallPrompt />
       </div>
     </CallProvider>
   );

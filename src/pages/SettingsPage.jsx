@@ -25,8 +25,9 @@ function SettingRow({ icon: Icon, label, sublabel, value, onChange }) {
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { profile, updateProfile, signOut } = useAuth();
+  const { profile, updateProfile, signOut, user } = useAuth();
   const s = profile?.settings || {};
+  const { subscribed, permission, subscribe, unsubscribe } = usePushNotifications(user?.id);
 
   const updateSetting = (key, val) => {
     updateProfile({ settings: { ...s, [key]: val } });
@@ -37,31 +38,32 @@ export default function SettingsPage() {
     await signOut();
     navigate('/login');
   };
-  const { user } = useAuth(); // if not already destructured â€” needed to pass userId
-  const { subscribed, loading: pushLoading, subscribe, unsubscribe } = usePushNotifications(user?.id);
 
   const handleNotificationsToggle = async () => {
     if (subscribed) {
       await unsubscribe();
       updateSetting('notifications', false);
-    } else {
-      const ok = await subscribe();
-      if (ok) updateSetting('notifications', true);
-      else alert("Couldn't enable notifications â€” check your browser's permission settings.");
+      return;
     }
+    if (permission === 'denied') {
+      alert("Notifications are blocked for this site in your browser. To enable them, open your browser's site settings (the icon next to the address bar) and allow notifications, then try again.");
+      return;
+    }
+    const ok = await subscribe();
+    if (ok) updateSetting('notifications', true);
+    else alert("Couldn't enable notifications — check your browser's permission settings.");
   };
 
   return (
     <div className="h-full flex flex-col" style={{ backgroundColor: COLORS.bg }}>
       <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ backgroundColor: COLORS.bgSecondary }}>
-        <button onClick={() => navigate('/')} className="md:hidden p-1 -ml-1"><ArrowLeft size={22} color={COLORS.text} /></button>
+        <button onClick={() => navigate('/')} className="p-1 -ml-1"><ArrowLeft size={22} color={COLORS.text} /></button>
         <h1 className="text-lg font-bold" style={{ color: COLORS.text }}>Settings</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="px-4 py-2">
           <div className="text-xs font-semibold uppercase tracking-wide py-2" style={{ color: COLORS.textMuted }}>Preferences</div>
-          <SettingRow icon={Bell} label="Notifications" value={s.notifications} onChange={() => updateSetting('notifications', !s.notifications)} />
           <SettingRow icon={Bell} label="Notifications" value={subscribed} onChange={handleNotificationsToggle} />
           <SettingRow icon={Volume2} label="Sounds" value={s.sound} onChange={() => updateSetting('sound', !s.sound)} />
           <SettingRow icon={Moon} label="Dark Mode" value={s.darkMode} onChange={() => updateSetting('darkMode', !s.darkMode)} />
@@ -100,7 +102,7 @@ export default function SettingsPage() {
             <HelpCircle size={20} color={COLORS.primary} />
             <div><div className="text-[15px]" style={{ color: COLORS.text }}>Help Center</div><div className="text-xs" style={{ color: COLORS.textMuted }}>Get support and FAQs</div></div>
           </div>
-          <div className="py-4 text-center"><span className="text-xs" style={{ color: COLORS.textMuted }}>Sprout v2.0.0 â€” Built with Supabase</span></div>
+          <div className="py-4 text-center"><span className="text-xs" style={{ color: COLORS.textMuted }}>Sprout v2.0.0 — Built with Supabase</span></div>
         </div>
 
         <div className="px-4 py-2">
@@ -119,4 +121,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

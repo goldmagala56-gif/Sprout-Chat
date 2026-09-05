@@ -1,14 +1,12 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MessageSquare, Users, CircleDot, Settings, User } from 'lucide-react';
+import { MessageSquare, Users, CircleDot } from 'lucide-react';
 import { COLORS } from '../../utils/constants.js';
 
 const tabs = [
   { icon: MessageSquare, label: 'Chats', path: '/' },
   { icon: CircleDot, label: 'Status', path: '/status' },
   { icon: Users, label: 'Contacts', path: '/contacts' },
-  { icon: User, label: 'Profile', path: '/profile' },
-  { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 export default function BottomNav() {

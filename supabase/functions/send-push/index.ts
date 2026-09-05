@@ -7,14 +7,14 @@ const supabaseAdmin = createClient(
 );
 
 webpush.setVapidDetails(
-  Deno.env.get('VAPID_SUBJECT')!, // e.g. 'mailto:you@example.com'
+  Deno.env.get('VAPID_SUBJECT')!,
   Deno.env.get('VAPID_PUBLIC_KEY')!,
   Deno.env.get('VAPID_PRIVATE_KEY')!
 );
 
 Deno.serve(async (req) => {
   const payload = await req.json();
-  const message = payload.record; // the newly inserted messages row
+  const message = payload.record;
 
   if (!message) return new Response('no record', { status: 400 });
 
@@ -49,9 +49,11 @@ Deno.serve(async (req) => {
       .from('push_subscriptions').select('*').eq('user_id', p.user_id);
 
     for (const sub of subs || []) {
+      // FIX: the table's column is `auth_key`, not `auth` — using the wrong
+      // name meant every push silently sent an undefined auth secret.
       const pushSub = {
         endpoint: sub.endpoint,
-        keys: { p256dh: sub.p256dh, auth: sub.auth },
+        keys: { p256dh: sub.p256dh, auth: sub.auth_key },
       };
       try {
         await webpush.sendNotification(pushSub, JSON.stringify({
@@ -60,9 +62,9 @@ Deno.serve(async (req) => {
           url: `#/chat/${message.conversation_id}`,
         }));
       } catch (err) {
-        console.error('Push send failed:', err.statusCode, sub.endpoint);
-        // 410/404 means the subscription is dead (uninstalled, expired) — clean it up.
-        if (err.statusCode === 410 || err.statusCode === 404) {
+        const statusCode = (err as { statusCode?: number }).statusCode;
+        console.error('Push send failed:', statusCode, sub.endpoint);
+        if (statusCode === 410 || statusCode === 404) {
           await supabaseAdmin.from('push_subscriptions').delete().eq('id', sub.id);
         }
       }
@@ -71,5 +73,3 @@ Deno.serve(async (req) => {
 
   return new Response('ok', { status: 200 });
 });
-
-
