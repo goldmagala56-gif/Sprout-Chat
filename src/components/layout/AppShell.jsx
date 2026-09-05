@@ -9,6 +9,7 @@ import Avatar from '../ui/Avatar.jsx';
 import ChatList from './ChatList.jsx';
 import BottomNav from './BottomNav.jsx';
 import CallOverlay from '../call/CallOverlay.jsx';
+import InstallPrompt from './InstallPrompt.jsx';
 
 const PENDING_INVITE_KEY = 'sprout_pending_invite';
 
@@ -187,6 +188,7 @@ export default function AppShell() {
         </div>
 
         <CallOverlay />
+        <InstallPrompt />
       </div>
     </CallProvider>
   );
