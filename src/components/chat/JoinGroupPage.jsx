@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Leaf, Loader2 } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth.js';
-import { useConversations } from '../hooks/useConversations.js';
-import { COLORS } from '../utils/constants.js';
+import { useAuth } from '../../hooks/useAuth.js';
+import { useConversations } from '../../hooks/useConversations.js';
+import { COLORS } from '../../utils/constants.js';
 
 const PENDING_INVITE_KEY = 'sprout_pending_invite';
 
@@ -19,8 +19,6 @@ export default function JoinGroupPage() {
     if (authLoading) return;
 
     if (!user) {
-      // Not signed in — remember this invite. AppShell.jsx picks this up
-      // and redirects back here automatically once the user is authenticated.
       if (code) localStorage.setItem(PENDING_INVITE_KEY, code);
       setStatus('needs-auth');
       return;
