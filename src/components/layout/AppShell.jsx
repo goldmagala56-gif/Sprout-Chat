@@ -9,6 +9,7 @@ import Avatar from '../ui/Avatar.jsx';
 import ChatList from './ChatList.jsx';
 import BottomNav from './BottomNav.jsx';
 import CallOverlay from '../call/CallOverlay.jsx';
+import InstallPrompt from './InstallPrompt.jsx';
 
 export default function AppShell() {
   const navigate = useNavigate();
@@ -93,7 +94,6 @@ export default function AppShell() {
 
             {menuOpen && (
               <>
-                {/* invisible backdrop — closes the menu on any outside tap/click */}
                 <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
                 <div
                   className="absolute top-full right-3 mt-1 rounded-lg shadow-lg py-1 z-50 min-w-[180px]"
@@ -157,7 +157,7 @@ export default function AppShell() {
             />
           </div>
 
-          {/* User footer - desktop only (identity display; Log out now lives in the ... menu above) */}
+          {/* User footer - desktop only */}
           {!isMobile && (
             <div 
               className="flex items-center gap-3 px-4 py-3 border-t flex-shrink-0"
@@ -212,6 +212,7 @@ export default function AppShell() {
         </div>
 
         <CallOverlay />
+        <InstallPrompt />
       </div>
     </CallProvider>
   );
