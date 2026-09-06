@@ -376,7 +376,7 @@ export function useMessages(conversationId, userId) {
     fetchMessages(messages[0]?.time);
   }, [messages, hasMore, loading, fetchMessages]);
 
-  return {
+    return {
     messages, loading, hasMore, typingUsers, blockedError,
     sendMessage, editMessage, deleteMessage, toggleReaction, toggleStar, togglePin,
     setTyping, loadMore,
