@@ -40,7 +40,6 @@ export default function AppShell() {
   ];
   const filtered = showArchived ? archivedList : sortedActive;
 
-  const isChatRoute = location.pathname.startsWith('/chat/');
   const isListRoute = location.pathname === '/';
   const showChatList = !isMobile || isListRoute;
   const showChatWindow = !isMobile || !isListRoute;
@@ -190,22 +189,6 @@ export default function AppShell() {
             ${showChatWindow ? 'flex' : 'hidden md:flex'}
           `}
         >
-          {/* Mobile: show back button when in chat */}
-          {isMobile && isChatRoute && (
-            <div 
-              className="flex items-center gap-3 px-4 py-3 flex-shrink-0 md:hidden"
-              style={{ backgroundColor: COLORS.bgSecondary, borderBottom: `1px solid ${COLORS.divider}` }}
-            >
-              <button 
-                onClick={() => navigate('/')}
-                className="p-1 -ml-1 rounded-full hover:bg-black/5"
-              >
-                <ArrowLeft size={22} color={COLORS.text} />
-              </button>
-              <span className="text-sm font-medium" style={{ color: COLORS.text }}>Back to chats</span>
-            </div>
-          )}
-
           <div className="flex-1 min-h-0">
             <Outlet context={{ userId: user?.id, conversations }} />
           </div>

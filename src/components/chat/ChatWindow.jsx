@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { ArrowLeft, Phone, Video, MoreVertical, Image as ImageIcon, Info, Trash2, Timer, Download } from 'lucide-react';
+import { ArrowLeft, Phone, Video, MoreVertical, Image as ImageIcon, Info, Trash2, Timer, Download, X, Reply, Forward, Star, Pin, Copy, Pencil } from 'lucide-react';
 import { useMessages } from '../../hooks/useMessages.js';
 import { useConversations } from '../../hooks/useConversations.js';
 import { useCall } from '../../context/CallContext.jsx';
@@ -13,6 +13,7 @@ import ForwardModal from './ForwardModal.jsx';
 import GalleryModal from './GalleryModal.jsx';
 import GroupInfoModal from './GroupInfoModal.jsx';
 import DisappearingMessagesModal from './DisappearingMessagesModal.jsx';
+import MessageInfoModal from './MessageInfoModal.jsx';
 
 function formatDisappearing(seconds) {
   if (!seconds) return null;
@@ -26,7 +27,7 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
   const scrollRef = useRef(null);
   const {
     messages, loading, sendMessage, editMessage, deleteMessage,
-    toggleReaction, toggleStar, typingUsers, setTyping, blockedError,
+    toggleReaction, toggleStar, togglePin, typingUsers, setTyping, blockedError,
   } = useMessages(conversation?.id, userId);
   const { conversations, setDisappearingMessages } = useConversations();
   const { startCall, callState } = useCall();
@@ -37,11 +38,21 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [disappearingOpen, setDisappearingOpen] = useState(false);
 
+  // Message selection (long-press) state — the header swaps to an action
+  // toolbar while a message is selected, WhatsApp-style.
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const [infoMessage, setInfoMessage] = useState(null);
+
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  useEffect(() => { setReplyTo(null); setHeaderMenuOpen(false); }, [conversation?.id]);
+  useEffect(() => { setReplyTo(null); setHeaderMenuOpen(false); setSelectedMessage(null); }, [conversation?.id]);
+
+  const deselect = () => { setSelectedMessage(null); setDeleteMenuOpen(false); setOverflowOpen(false); };
 
   if (!conversation) {
   return (
@@ -72,74 +83,153 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
   };
 
   const canManageDisappearing = isGroup ? conversation.isAdmin : true;
+  const pinnedMessage = messages.find(m => m.pinnedAt);
+  const isTextMsg = selectedMessage && selectedMessage.type !== 'voice' && selectedMessage.type !== 'image' && selectedMessage.type !== 'file';
+
+  const handleCopy = () => {
+    if (selectedMessage?.text) navigator.clipboard.writeText(selectedMessage.text);
+    deselect();
+  };
 
   return (
     <div className="flex flex-col h-full w-full" style={{ backgroundColor: '#f0f2f5' }}>
-      <div className="flex items-center justify-between px-3 py-2.5 flex-shrink-0" style={{ backgroundColor: COLORS.bgSecondary }}>
-        <div className="flex items-center gap-3 min-w-0">
-          <button onClick={onBack} className="md:hidden p-1 -ml-1 rounded-full hover:bg-black/5 flex-shrink-0"><ArrowLeft size={22} color={COLORS.text} /></button>
-          <button onClick={() => isGroup && setGroupInfoOpen(true)} className="flex items-center gap-3 min-w-0 text-left">
-            <Avatar url={conversation.avatar_url} initials={conversation.initials} online={conversation.online} size={40} />
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-base font-semibold truncate" style={{ color: COLORS.text }}>{conversation.name}</span>
-                {disappearingLabel && <Timer size={13} color={COLORS.textMuted} className="flex-shrink-0" />}
-              </div>
-              <div className="text-xs truncate" style={{ color: typingNames.length > 0 ? COLORS.primary : COLORS.textMuted }}>{subtitle}</div>
+      {selectedMessage ? (
+        <div className="flex items-center justify-between px-2 py-2 flex-shrink-0 relative z-50" style={{ backgroundColor: COLORS.bgSecondary }}>
+          <button onClick={deselect} className="p-2 rounded-full hover:bg-black/5"><X size={22} color={COLORS.text} /></button>
+          <div className="flex items-center gap-0.5">
+            <button onClick={() => { setReplyTo(selectedMessage); deselect(); }} className="p-2 rounded-full hover:bg-black/5"><Reply size={20} color={COLORS.text} /></button>
+            <button onClick={() => { setForwardTarget(selectedMessage); deselect(); }} className="p-2 rounded-full hover:bg-black/5"><Forward size={20} color={COLORS.text} /></button>
+            <button onClick={() => { toggleStar(selectedMessage.id); deselect(); }} className="p-2 rounded-full hover:bg-black/5">
+              <Star size={20} color={COLORS.text} fill={selectedMessage.starred ? COLORS.text : 'none'} />
+            </button>
+            <div className="relative">
+              <button onClick={() => setDeleteMenuOpen(!deleteMenuOpen)} className="p-2 rounded-full hover:bg-black/5"><Trash2 size={20} color={COLORS.danger} /></button>
+              {deleteMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setDeleteMenuOpen(false)} />
+                  <div className="absolute top-full right-0 mt-1 rounded-lg shadow-lg py-1 z-50 min-w-[170px]" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}>
+                    <button onClick={() => { deleteMessage(selectedMessage.id, 'me'); deselect(); }} className="w-full px-3 py-2 text-sm hover:bg-black/5 text-left">Delete for me</button>
+                    {selectedMessage.from === 'me' && (
+                      <button
+                        onClick={() => { if (confirm('Delete this message for everyone?')) deleteMessage(selectedMessage.id, 'everyone'); deselect(); }}
+                        className="w-full px-3 py-2 text-sm hover:bg-black/5 text-left"
+                        style={{ color: COLORS.danger }}
+                      >
+                        Delete for everyone
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
-          </button>
+            <div className="relative">
+              <button onClick={() => setOverflowOpen(!overflowOpen)} className="p-2 rounded-full hover:bg-black/5"><MoreVertical size={20} color={COLORS.text} /></button>
+              {overflowOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setOverflowOpen(false)} />
+                  <div className="absolute top-full right-0 mt-1 rounded-lg shadow-lg py-1 z-50 min-w-[160px]" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}>
+                    <button onClick={() => { setInfoMessage(selectedMessage); deselect(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left">
+                      <Info size={16} color={COLORS.text} /> Info
+                    </button>
+                    {isTextMsg && (
+                      <button onClick={handleCopy} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left">
+                        <Copy size={16} color={COLORS.text} /> Copy
+                      </button>
+                    )}
+                    <button onClick={() => { togglePin(selectedMessage.id); deselect(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left">
+                      <Pin size={16} color={COLORS.text} /> {selectedMessage.pinnedAt ? 'Unpin' : 'Pin'}
+                    </button>
+                    {selectedMessage.from === 'me' && isTextMsg && (
+                      <button onClick={() => { setEditingMessageId(selectedMessage.id); deselect(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left">
+                        <Pencil size={16} color={COLORS.text} /> Edit
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0 relative">
-          {!isGroup && (
-            <>
-              <button onClick={() => handleCall('video')} disabled={!canCall} className="p-2 rounded-full hover:bg-black/5 transition-colors disabled:opacity-40">
-                <Video size={20} color={COLORS.textMuted} />
-              </button>
-              <button onClick={() => handleCall('voice')} disabled={!canCall} className="p-2 rounded-full hover:bg-black/5 transition-colors disabled:opacity-40">
-                <Phone size={18} color={COLORS.textMuted} />
-              </button>
-            </>
-          )}
-          <button className="p-2 rounded-full hover:bg-black/5 transition-colors" onClick={() => setHeaderMenuOpen(!headerMenuOpen)}>
-            <MoreVertical size={20} color={COLORS.textMuted} />
-          </button>
-          {headerMenuOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setHeaderMenuOpen(false)} />
-              <div className="absolute top-full right-0 mt-1 rounded-lg shadow-lg py-1 z-50 min-w-[210px]" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}>
-                <button onClick={() => { setGalleryOpen(true); setHeaderMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
-                  <ImageIcon size={14} color={COLORS.text} /> Media, links and docs
-                </button>
-                {isGroup && (
-                  <button onClick={() => { setGroupInfoOpen(true); setHeaderMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
-                    <Info size={14} color={COLORS.text} /> Group info
-                  </button>
-                )}
-                {canManageDisappearing && (
-                  <button onClick={() => { setDisappearingOpen(true); setHeaderMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
-                    <Timer size={14} color={COLORS.text} /> Disappearing messages {disappearingLabel ? `(${disappearingLabel})` : ''}
-                  </button>
-                )}
-                <button
-                  onClick={() => { setHeaderMenuOpen(false); exportChatAsText(conversation.id, conversation.name, userId); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
-                >
-                  <Download size={14} color={COLORS.text} /> Export chat
-                </button>
-                <button
-                  onClick={() => { setHeaderMenuOpen(false); if (confirm('Delete this conversation?')) onDelete?.(conversation.id); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
-                  style={{ color: COLORS.danger }}
-                >
-                  <Trash2 size={14} /> Delete conversation
-                </button>
+      ) : (
+        <div className="flex items-center justify-between px-3 py-2.5 flex-shrink-0" style={{ backgroundColor: COLORS.bgSecondary }}>
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={onBack} className="md:hidden p-1 -ml-1 rounded-full hover:bg-black/5 flex-shrink-0"><ArrowLeft size={22} color={COLORS.text} /></button>
+            <button onClick={() => isGroup && setGroupInfoOpen(true)} className="flex items-center gap-3 min-w-0 text-left">
+              <Avatar url={conversation.avatar_url} initials={conversation.initials} online={conversation.online} size={40} />
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-base font-semibold truncate" style={{ color: COLORS.text }}>{conversation.name}</span>
+                  {disappearingLabel && <Timer size={13} color={COLORS.textMuted} className="flex-shrink-0" />}
+                </div>
+                <div className="text-xs truncate" style={{ color: typingNames.length > 0 ? COLORS.primary : COLORS.textMuted }}>{subtitle}</div>
               </div>
-            </>
-          )}
+            </button>
+          </div>
+          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0 relative">
+            {!isGroup && (
+              <>
+                <button onClick={() => handleCall('video')} disabled={!canCall} className="p-2 rounded-full hover:bg-black/5 transition-colors disabled:opacity-40">
+                  <Video size={20} color={COLORS.textMuted} />
+                </button>
+                <button onClick={() => handleCall('voice')} disabled={!canCall} className="p-2 rounded-full hover:bg-black/5 transition-colors disabled:opacity-40">
+                  <Phone size={18} color={COLORS.textMuted} />
+                </button>
+              </>
+            )}
+            <button className="p-2 rounded-full hover:bg-black/5 transition-colors" onClick={() => setHeaderMenuOpen(!headerMenuOpen)}>
+              <MoreVertical size={20} color={COLORS.textMuted} />
+            </button>
+            {headerMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setHeaderMenuOpen(false)} />
+                <div className="absolute top-full right-0 mt-1 rounded-lg shadow-lg py-1 z-50 min-w-[210px]" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}>
+                  <button onClick={() => { setGalleryOpen(true); setHeaderMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
+                    <ImageIcon size={14} color={COLORS.text} /> Media, links and docs
+                  </button>
+                  {isGroup && (
+                    <button onClick={() => { setGroupInfoOpen(true); setHeaderMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
+                      <Info size={14} color={COLORS.text} /> Group info
+                    </button>
+                  )}
+                  {canManageDisappearing && (
+                    <button onClick={() => { setDisappearingOpen(true); setHeaderMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
+                      <Timer size={14} color={COLORS.text} /> Disappearing messages {disappearingLabel ? `(${disappearingLabel})` : ''}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setHeaderMenuOpen(false); exportChatAsText(conversation.id, conversation.name, userId); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
+                  >
+                    <Download size={14} color={COLORS.text} /> Export chat
+                  </button>
+                  <button
+                    onClick={() => { setHeaderMenuOpen(false); if (confirm('Delete this conversation?')) onDelete?.(conversation.id); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
+                    style={{ color: COLORS.danger }}
+                  >
+                    <Trash2 size={14} /> Delete conversation
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 min-h-0">
+      {pinnedMessage && (
+        <button
+          onClick={() => setSelectedMessage(pinnedMessage)}
+          className="flex items-center gap-2 px-4 py-2 flex-shrink-0 text-left hover:bg-black/[0.02]"
+          style={{ backgroundColor: COLORS.accentSoft, borderBottom: `1px solid ${COLORS.divider}` }}
+        >
+          <Pin size={14} color={COLORS.primary} className="flex-shrink-0" />
+          <span className="flex-1 text-xs truncate" style={{ color: COLORS.text }}>
+            {pinnedMessage.type === 'image' ? 'Photo' : pinnedMessage.type === 'voice' ? 'Voice message' : pinnedMessage.type === 'file' ? (pinnedMessage.file_name || 'File') : pinnedMessage.text}
+          </span>
+        </button>
+      )}
+
+      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 min-h-0">
         {messages.length === 0 && !loading && (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
@@ -159,12 +249,12 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
               isGroup={isGroup}
               currentUserId={userId}
               groupMemberNames={groupMemberNames}
-              onReply={setReplyTo}
-              onEdit={editMessage}
-              onDelete={deleteMessage}
+              isSelected={selectedMessage?.id === msg.id}
+              onSelect={setSelectedMessage}
+              isEditing={editingMessageId === msg.id}
+              onSubmitEdit={(id, text) => { editMessage(id, text); setEditingMessageId(null); }}
+              onCancelEdit={() => setEditingMessageId(null)}
               onReact={toggleReaction}
-              onToggleStar={toggleStar}
-              onForward={setForwardTarget}
             />
           );
         })}
@@ -206,6 +296,9 @@ export default function ChatWindow({ conversation, userId, onBack, onDelete }) {
           onSelect={(seconds) => setDisappearingMessages(conversation.id, seconds)}
           onClose={() => setDisappearingOpen(false)}
         />
+      )}
+      {infoMessage && (
+        <MessageInfoModal msg={infoMessage} onClose={() => setInfoMessage(null)} />
       )}
     </div>
   );

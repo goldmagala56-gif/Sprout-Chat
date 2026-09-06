@@ -33,7 +33,7 @@ export function useMessages(conversationId, userId) {
       .from('messages')
       .select(`
         id, conversation_id, sender_id, text, type, file_url, file_name, file_size, duration,
-        reply_to, deleted_at, edited_at, forwarded, mentions, created_at,
+        reply_to, deleted_at, edited_at, forwarded, mentions, pinned_by, pinned_at, created_at,
         profiles:sender_id(id, name, initials, avatar_url),
         message_reads(user_id),
         message_reactions(user_id, emoji),
@@ -94,6 +94,8 @@ export function useMessages(conversationId, userId) {
           reactions,
           myReaction,
           starred: (msg.starred_messages || []).length > 0,
+          pinnedAt: msg.pinned_at,
+          pinnedBy: msg.pinned_by,
         };
       });
 
@@ -118,9 +120,6 @@ export function useMessages(conversationId, userId) {
     fetchMessages();
   }, [conversationId, fetchMessages]);
 
-  // Realtime: new + edited/deleted messages, reactions, and this user's own
-  // "delete for me" actions taken on OTHER signed-in devices (so hiding a
-  // message on your phone also hides it live on your laptop).
   useEffect(() => {
     if (!conversationId) return;
     if (channelRef.current) supabase.removeChannel(channelRef.current);
@@ -156,6 +155,8 @@ export function useMessages(conversationId, userId) {
             reactions: {},
             myReaction: null,
             starred: false,
+            pinnedAt: msg.pinned_at,
+            pinnedBy: msg.pinned_by,
           }];
         });
       })
@@ -165,7 +166,7 @@ export function useMessages(conversationId, userId) {
       }, (payload) => {
         const msg = payload.new;
         setMessages(prev => prev.map(m => m.id === msg.id
-          ? { ...m, deletedAt: msg.deleted_at, editedAt: msg.edited_at, text: msg.deleted_at ? '' : msg.text, file_url: msg.deleted_at ? null : m.file_url }
+          ? { ...m, deletedAt: msg.deleted_at, editedAt: msg.edited_at, text: msg.deleted_at ? '' : msg.text, file_url: msg.deleted_at ? null : m.file_url, pinnedAt: msg.pinned_at, pinnedBy: msg.pinned_by }
           : m));
       })
       .on('postgres_changes', {
@@ -248,6 +249,7 @@ export function useMessages(conversationId, userId) {
       file_url: file ? URL.createObjectURL(file) : null,
       file_name: file?.name || null, file_size: file?.size || null,
       reactions: {}, myReaction: null, starred: false, forwarded: false, mentions,
+      pinnedAt: null, pinnedBy: null,
     }]);
 
     let file_url = null;
@@ -360,6 +362,15 @@ export function useMessages(conversationId, userId) {
     }
   }, [messages, userId]);
 
+  const togglePin = useCallback(async (messageId) => {
+    if (!userId) return;
+    const msg = messages.find(m => m.id === messageId);
+    const isPinned = !!msg?.pinnedAt;
+    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, pinnedAt: isPinned ? null : new Date().toISOString(), pinnedBy: isPinned ? null : userId } : m));
+    const { error } = await supabase.rpc('toggle_message_pin', { msg_id: messageId, requester: userId });
+    if (error) { console.error('Toggle pin error:', error); }
+  }, [messages, userId]);
+
   const loadMore = useCallback(() => {
     if (!hasMore || loading || messages.length === 0) return;
     fetchMessages(messages[0]?.time);
@@ -367,7 +378,7 @@ export function useMessages(conversationId, userId) {
 
   return {
     messages, loading, hasMore, typingUsers, blockedError,
-    sendMessage, editMessage, deleteMessage, toggleReaction, toggleStar,
+    sendMessage, editMessage, deleteMessage, toggleReaction, toggleStar, togglePin,
     setTyping, loadMore,
   };
 }

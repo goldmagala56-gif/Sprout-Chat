@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, CheckCheck, Reply, Trash2, Pencil, X, Star, Forward, FileText, Download } from 'lucide-react';
+import { Check, CheckCheck, Forward, FileText, Download, Pin } from 'lucide-react';
 import Avatar from '../ui/Avatar.jsx';
 import { formatMessageTime } from '../../utils/formatters.js';
 import { COLORS } from '../../utils/constants.js';
@@ -27,38 +27,25 @@ function renderTextWithMentions(text, memberNames) {
   );
 }
 
-export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId, groupMemberNames = [], onReply, onEdit, onDelete, onReact, onToggleStar, onForward }) {
-  const [selected, setSelected] = useState(false);
-  const [deleteMenuOpen, setDeleteMenuOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
+export default function MessageBubble({
+  msg, showAvatar, isGroup, currentUserId, groupMemberNames = [],
+  isSelected, onSelect, isEditing, onSubmitEdit, onCancelEdit,
+  onReact,
+}) {
   const [editText, setEditText] = useState(msg.text || '');
   const isMe = msg.from === 'me';
   const isVoice = msg.type === 'voice';
   const isImage = msg.type === 'image';
   const isFile = msg.type === 'file';
   const isDeleted = !!msg.deletedAt;
-  const isTextMsg = !isVoice && !isImage && !isFile;
   const reactionEntries = Object.entries(msg.reactions || {});
 
-  const longPress = useLongPress(() => { if (!isDeleted) setSelected(true); });
-
-  const close = () => { setSelected(false); setDeleteMenuOpen(false); };
-
-  const startEdit = () => {
-    setEditText(msg.text || '');
-    setEditing(true);
-    close();
-  };
+  const longPress = useLongPress(() => { if (!isDeleted && !isEditing) onSelect?.(msg); });
 
   const submitEdit = () => {
     const trimmed = editText.trim();
-    if (trimmed && trimmed !== msg.text) onEdit?.(msg.id, trimmed);
-    setEditing(false);
-  };
-
-  const cancelEdit = () => {
-    setEditText(msg.text || '');
-    setEditing(false);
+    if (trimmed && trimmed !== msg.text) onSubmitEdit?.(msg.id, trimmed);
+    else onCancelEdit?.();
   };
 
   return (
@@ -72,70 +59,22 @@ export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId,
             <span className="text-xs font-medium ml-1 mb-0.5" style={{ color: COLORS.primaryLight }}>{msg.senderName}</span>
           )}
 
-          {selected && (
-            <>
-              <div className="fixed inset-0 z-40" style={{ backgroundColor: 'rgba(0,0,0,0.15)' }} onClick={close} />
-
-              {/* Quick-react + action panel, anchored above the bubble */}
-              <div
-                className="absolute z-50 bottom-full mb-1 flex flex-col gap-1 items-stretch"
-                style={{ [isMe ? 'right' : 'left']: 0, minWidth: 190 }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center gap-1 rounded-full shadow-lg px-2 py-1.5 self-start" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}>
-                  {QUICK_EMOJIS.map(emoji => (
-                    <button key={emoji} onClick={() => { onReact?.(msg.id, emoji); close(); }} className="text-lg hover:scale-125 transition-transform px-0.5">
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-
-                {!deleteMenuOpen ? (
-                  <div className="rounded-lg shadow-lg py-1" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}>
-                    <button onClick={() => { onReply?.(msg); close(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left">
-                      <Reply size={16} color={COLORS.text} /> Reply
-                    </button>
-                    <button onClick={() => { onForward?.(msg); close(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left">
-                      <Forward size={16} color={COLORS.text} /> Forward
-                    </button>
-                    <button onClick={() => { onToggleStar?.(msg.id); close(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left">
-                      <Star size={16} color={COLORS.text} fill={msg.starred ? COLORS.text : 'none'} /> {msg.starred ? 'Unstar' : 'Star'}
-                    </button>
-                    {isMe && isTextMsg && (
-                      <button onClick={startEdit} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left">
-                        <Pencil size={16} color={COLORS.text} /> Edit
-                      </button>
-                    )}
-                    <button onClick={() => setDeleteMenuOpen(true)} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left">
-                      <Trash2 size={16} color={COLORS.danger} /> Delete
-                    </button>
-                  </div>
-                ) : (
-                  <div className="rounded-lg shadow-lg py-1" style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}>
-                    <div className="flex items-center justify-between px-3 py-1.5">
-                      <span className="text-[10px] font-semibold uppercase" style={{ color: COLORS.textMuted }}>Delete message</span>
-                      <button onClick={() => setDeleteMenuOpen(false)}><X size={12} color={COLORS.textMuted} /></button>
-                    </div>
-                    <button onClick={() => { onDelete?.(msg.id, 'me'); close(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left">
-                      Delete for me
-                    </button>
-                    {isMe && (
-                      <button
-                        onClick={() => { if (confirm('Delete this message for everyone?')) { onDelete?.(msg.id, 'everyone'); } close(); }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-black/5 text-left"
-                        style={{ color: COLORS.danger }}
-                      >
-                        Delete for everyone
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
+          {isSelected && (
+            <div
+              className="absolute z-50 bottom-full mb-1 flex items-center gap-1 rounded-full shadow-lg px-2 py-1.5"
+              style={{ [isMe ? 'right' : 'left']: 0, backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {QUICK_EMOJIS.map(emoji => (
+                <button key={emoji} onClick={() => onReact?.(msg.id, emoji)} className="text-lg hover:scale-125 transition-transform px-0.5">
+                  {emoji}
+                </button>
+              ))}
+            </div>
           )}
 
           <div
-            {...(!isDeleted && !editing ? longPress : {})}
+            {...(!isDeleted && !isEditing ? longPress : {})}
             className="relative px-3 py-1.5 text-sm shadow-sm select-none"
             style={{
               backgroundColor: isMe ? COLORS.sentBubble : COLORS.receivedBubble,
@@ -143,21 +82,27 @@ export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId,
               borderRadius: isMe ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
               maxWidth: '100%',
               fontStyle: isDeleted ? 'italic' : 'normal',
-              minWidth: editing ? 220 : undefined,
+              minWidth: isEditing ? 220 : undefined,
               marginBottom: reactionEntries.length > 0 ? 10 : 0,
-              outline: selected ? `2px solid ${COLORS.primary}` : 'none',
-              outlineOffset: selected ? 2 : 0,
-              zIndex: selected ? 50 : 'auto',
+              outline: isSelected ? `2px solid ${COLORS.primary}` : 'none',
+              outlineOffset: isSelected ? 2 : 0,
+              zIndex: isSelected ? 50 : 'auto',
               WebkitTapHighlightColor: 'transparent',
             }}
           >
-            {!isDeleted && !editing && msg.forwarded && (
+            {!isDeleted && !isEditing && msg.pinnedAt && (
+              <div className="text-[10px] mb-0.5 flex items-center gap-1" style={{ color: COLORS.primary }}>
+                <Pin size={10} /> Pinned
+              </div>
+            )}
+
+            {!isDeleted && !isEditing && msg.forwarded && (
               <div className="text-[10px] italic mb-0.5 flex items-center gap-1" style={{ color: COLORS.textMuted }}>
                 <Forward size={10} /> Forwarded
               </div>
             )}
 
-            {!isDeleted && !editing && msg.replyPreview && (
+            {!isDeleted && !isEditing && msg.replyPreview && (
               <div className="mb-1 pl-2 py-1 rounded" style={{ borderLeft: `3px solid ${COLORS.primary}`, backgroundColor: 'rgba(0,0,0,0.03)' }}>
                 <div className="text-xs font-semibold" style={{ color: COLORS.primary }}>{msg.replyPreview.sender}</div>
                 <div className="text-xs truncate" style={{ color: COLORS.textMuted, maxWidth: 200 }}>{msg.replyPreview.text}</div>
@@ -166,7 +111,7 @@ export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId,
 
             {isDeleted ? (
               <div>This message was deleted</div>
-            ) : editing ? (
+            ) : isEditing ? (
               <div className="flex flex-col gap-1.5">
                 <textarea
                   autoFocus
@@ -174,14 +119,14 @@ export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId,
                   onChange={(e) => setEditText(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitEdit(); }
-                    if (e.key === 'Escape') cancelEdit();
+                    if (e.key === 'Escape') onCancelEdit?.();
                   }}
                   rows={2}
                   className="w-full bg-transparent outline-none text-sm resize-none border rounded px-2 py-1"
                   style={{ color: COLORS.text, borderColor: COLORS.panelBorder }}
                 />
                 <div className="flex items-center justify-end gap-2">
-                  <button onClick={cancelEdit} className="text-xs px-2 py-1 rounded hover:bg-black/5" style={{ color: COLORS.textMuted }}>Cancel</button>
+                  <button onClick={onCancelEdit} className="text-xs px-2 py-1 rounded hover:bg-black/5" style={{ color: COLORS.textMuted }}>Cancel</button>
                   <button onClick={submitEdit} className="text-xs px-2 py-1 rounded font-medium hover:bg-black/5" style={{ color: COLORS.primary }}>Save</button>
                 </div>
               </div>
@@ -196,7 +141,7 @@ export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId,
                 <span className="text-xs flex-shrink-0" style={{ color: COLORS.textMuted }}>{msg.duration || '0:00'}</span>
               </div>
             ) : isFile ? (
-              <a href={msg.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 min-w-[180px] hover:opacity-80" onClick={(e) => selected && e.preventDefault()}>
+              <a href={msg.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 min-w-[180px] hover:opacity-80" onClick={(e) => isSelected && e.preventDefault()}>
                 <div className="flex items-center justify-center rounded-lg flex-shrink-0" style={{ width: 36, height: 36, backgroundColor: COLORS.primary }}>
                   <FileText size={18} color="white" />
                 </div>
@@ -210,9 +155,9 @@ export default function MessageBubble({ msg, showAvatar, isGroup, currentUserId,
               <div className="break-words whitespace-pre-wrap">{renderTextWithMentions(msg.text, groupMemberNames)}</div>
             )}
 
-            {!isDeleted && !editing && (
+            {!isDeleted && !isEditing && (
               <div className="flex items-center justify-end gap-1 mt-0.5">
-                {msg.starred && <Star size={11} color={COLORS.primary} fill={COLORS.primary} />}
+                {msg.starred && <span style={{ color: COLORS.primary }}>★</span>}
                 {msg.editedAt && <span className="text-[10px] italic" style={{ color: COLORS.textMuted }}>edited</span>}
                 <span className="text-[10px]" style={{ color: COLORS.textMuted }}>{formatMessageTime(msg.time)}</span>
                 {isMe && (
