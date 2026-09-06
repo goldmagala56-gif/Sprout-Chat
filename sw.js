@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sprout-shell-v1';
+const CACHE_NAME = 'sprout-shell-v2';
 // Keep this list intentionally small: the app-shell only. Chat data itself
 // comes from Supabase and should never be cached — messages must always be fresh.
 const SHELL_ASSETS = [
