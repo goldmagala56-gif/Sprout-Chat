@@ -94,3 +94,5 @@ export default function ChatListItem({ chat, isActive, onClick, onMute, onArchiv
     </div>
   );
 }
+
+

@@ -40,9 +40,7 @@ export default function MessageBubble({
   const isDeleted = !!msg.deletedAt;
   const reactionEntries = Object.entries(msg.reactions || {});
 
-  const longPress = useLongPress({
-    onLongPress: () => { if (!isDeleted && !isEditing) onSelect?.(msg); },
-  });
+  const longPress = useLongPress({ onLongPress: () => { if (!isDeleted && !isEditing) onSelect?.(msg); } });
 
   const submitEdit = () => {
     const trimmed = editText.trim();
@@ -51,8 +49,8 @@ export default function MessageBubble({
   };
 
   return (
-    <div className={`flex ${isMe ? 'justify-start' : 'justify-end'}`}>
-      <div className={`flex items-end gap-2 max-w-[75%] md:max-w-[65%] ${isMe ? 'flex-row' : 'flex-row-reverse'}`}>
+    <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+      <div className={`flex items-end gap-2 max-w-[75%] md:max-w-[65%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
         {showAvatar && !isMe && isGroup && (
           <Avatar url={msg.senderAvatar} initials={msg.senderName?.slice(0, 2).toUpperCase() || '??'} size={28} />
         )}
@@ -64,7 +62,7 @@ export default function MessageBubble({
           {isSelected && (
             <div
               className="absolute z-50 bottom-full mb-1 flex items-center gap-1 rounded-full shadow-lg px-2 py-1.5"
-              style={{ [isMe ? 'left' : 'right']: 0, backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}
+              style={{ [isMe ? 'right' : 'left']: 0, backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}
               onClick={(e) => e.stopPropagation()}
             >
               {QUICK_EMOJIS.map(emoji => (
@@ -81,7 +79,7 @@ export default function MessageBubble({
             style={{
               backgroundColor: isMe ? COLORS.sentBubble : COLORS.receivedBubble,
               color: isDeleted ? COLORS.textMuted : COLORS.text,
-              borderRadius: isMe ? '12px 12px 12px 4px' : '12px 12px 4px 12px',
+              borderRadius: isMe ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
               maxWidth: '100%',
               fontStyle: isDeleted ? 'italic' : 'normal',
               minWidth: isEditing ? 220 : undefined,
@@ -173,7 +171,7 @@ export default function MessageBubble({
             {!isDeleted && reactionEntries.length > 0 && (
               <div
                 className="absolute -bottom-3 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 shadow-sm"
-                style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}`, [isMe ? 'left' : 'right']: 6 }}
+                style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}`, [isMe ? 'right' : 'left']: 6 }}
               >
                 {reactionEntries.map(([emoji, uids]) => (
                   <button
