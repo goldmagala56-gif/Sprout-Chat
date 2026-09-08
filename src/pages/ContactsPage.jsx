@@ -7,17 +7,16 @@ import { useConversations } from '../hooks/useConversations.js';
 import { useBlockedUsers } from '../hooks/useBlockedUsers.js';
 import { useReportUser } from '../hooks/useReportUser.js';
 import { useLongPress } from '../hooks/useLongPress.js';
-import { useClickOutside } from '../hooks/useClickOutside.js';
 import { COLORS } from '../utils/constants.js';
 import Avatar from '../components/ui/Avatar.jsx';
 import ReportUserModal from '../components/ui/ReportUserModal.jsx';
+import DropdownMenu from '../components/ui/DropdownMenu.jsx';
 import BottomNav from '../components/layout/BottomNav.jsx';
 
 const supportsContactPicker = typeof navigator !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window;
 
 function ContactRow({ contact, isBlocked, isReported, onStartChat, onToggleBlock, onRemove, onReport, menuOpen, onOpenMenu, onCloseMenu }) {
-  const menuRef = useRef(null);
-  useClickOutside(menuRef, menuOpen, onCloseMenu);
+  const anchorRef = useRef(null);
 
   const pressHandlers = useLongPress({
     onClick: () => { if (contact.registered) onStartChat(contact); },
@@ -39,51 +38,45 @@ function ContactRow({ contact, isBlocked, isReported, onStartChat, onToggleBlock
         </div>
       </button>
 
-      <button onClick={onOpenMenu} className="p-2 rounded-full hover:bg-black/5 flex-shrink-0">
+      <button ref={anchorRef} onClick={onOpenMenu} className="p-2 rounded-full hover:bg-black/5 flex-shrink-0">
         <MoreVertical size={16} color={COLORS.textMuted} />
       </button>
 
-      {menuOpen && (
-        <div
-          ref={menuRef}
-          className="absolute top-full right-0 mt-1 rounded-lg shadow-lg py-1 z-50 min-w-[180px]"
-          style={{ backgroundColor: COLORS.bg, border: `1px solid ${COLORS.divider}` }}
-        >
-          {contact.registered ? (
-            <>
-              <button onClick={() => { onStartChat(contact); onCloseMenu(); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
-                <MessageCircle size={14} color={COLORS.primary} /> Message
-              </button>
-              <button onClick={() => { onToggleBlock(contact); onCloseMenu(); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
-                {isBlocked ? <ShieldCheck size={14} color={COLORS.primary} /> : <Ban size={14} color={COLORS.text} />}
-                {isBlocked ? 'Unblock' : 'Block'}
-              </button>
-              <button
-                onClick={() => { onReport(contact); onCloseMenu(); }}
-                disabled={isReported}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left disabled:opacity-50"
-              >
-                <Flag size={14} color={isReported ? COLORS.textMuted : COLORS.danger} /> {isReported ? 'Reported' : 'Report'}
-              </button>
-            </>
-          ) : (
-            
-             <a href={`sms:${contact.phone}?body=${encodeURIComponent(`Hey ${contact.name.split(' ')[0]}, join me on Sprout!`)}`}
-              onClick={onCloseMenu}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
+      <DropdownMenu anchorRef={anchorRef} open={menuOpen} onClose={onCloseMenu}>
+        {contact.registered ? (
+          <>
+            <button onClick={() => { onStartChat(contact); onCloseMenu(); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
+              <MessageCircle size={14} color={COLORS.primary} /> Message
+            </button>
+            <button onClick={() => { onToggleBlock(contact); onCloseMenu(); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left">
+              {isBlocked ? <ShieldCheck size={14} color={COLORS.primary} /> : <Ban size={14} color={COLORS.text} />}
+              {isBlocked ? 'Unblock' : 'Block'}
+            </button>
+            <button
+              onClick={() => { onReport(contact); onCloseMenu(); }}
+              disabled={isReported}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left disabled:opacity-50"
             >
-              <Send size={14} color={COLORS.primary} /> Invite via SMS
-            </a>
-          )}
-          <button
-            onClick={() => { onRemove(contact.rowId); onCloseMenu(); }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-red-50 text-left"
-            style={{ color: COLORS.danger }}
+              <Flag size={14} color={isReported ? COLORS.textMuted : COLORS.danger} /> {isReported ? 'Reported' : 'Report'}
+            </button>
+          </>
+        ) : (
+          
+           <a href={`sms:${contact.phone}?body=${encodeURIComponent(`Hey ${contact.name.split(' ')[0]}, join me on Sprout!`)}`}
+            onClick={onCloseMenu}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-black/5 text-left"
           >
-            <Trash2 size={14} /> Delete contact
-          </button>
-        </div>
-      )}
+            <Send size={14} color={COLORS.primary} /> Invite via SMS
+          </a>
+        )}
+        <button
+          onClick={() => { onRemove(contact.rowId); onCloseMenu(); }}
+          className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-red-50 text-left"
+          style={{ color: COLORS.danger }}
+        >
+          <Trash2 size={14} /> Delete contact
+        </button>
+      </DropdownMenu>
     </div>
   );
 }
@@ -219,3 +212,4 @@ export default function ContactsPage() {
     </div>
   );
 }
+
