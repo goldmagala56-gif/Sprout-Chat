@@ -41,7 +41,7 @@ export const COLORS = {
   // Checkmarks
   checkSent: '#8696A0',
   checkDelivered: '#8696A0',
-  checkRead: '#53BDEB',
+  checkRead: '#34B7F1',
 
   // Overlays
   overlay: 'rgba(0,0,0,0.4)',
